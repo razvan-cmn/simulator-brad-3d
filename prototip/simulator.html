@@ -124,10 +124,12 @@ canvas.dragging{cursor:grabbing}
       <h3>Camera</h3>
       <div class="chips rooms" id="rooms"></div>
       <div class="photo-tools hidden" id="photoTools">
-        <button class="btn" id="pick">Încarcă o poză a camerei</button>
+        <button class="btn" id="snap">📷 Fă o poză acum</button>
+        <button class="btn" id="pick" style="background:#fff;color:var(--green);border:1px solid var(--line)">Alege din galerie</button>
+        <input type="file" id="fileCam" accept="image/*" capture="environment" class="hidden">
         <input type="file" id="file" accept="image/*" class="hidden">
         <label>Înălțimea aparatului foto (cm) <input type="number" id="camH" min="40" max="250" value="140"></label>
-        <p>Trage <b>linia aurie punctată</b> la nivelul ochilor fotografului (orizontul). Poza trebuie făcută cu telefonul ținut drept.</p>
+        <p>Ține telefonul <b>drept</b> (nu înclinat în sus sau în jos), la nivelul pieptului. Linia aurie punctată (orizontul) pornește din mijlocul pozei; dacă poza e înclinată, trag-o la nivelul ochilor fotografului.</p>
       </div>
       <h3>Înălțime</h3>
       <div class="sizes" id="sizes"></div>
@@ -179,7 +181,7 @@ const ROOMS = [
 ];
 let room = ROOMS[0];
 const pos = { living:{...ROOMS[0].start}, empty:{...ROOMS[1].start}, photo:{u:.5,v:.85} };
-const photo = { img:null, horizon:.45, hc:140 };
+const photo = { img:null, horizon:.5, hc:140 };
 
 /* ---------- stare afișare ---------- */
 const opt = { dims:true, cmp:false, person:false };
@@ -550,11 +552,13 @@ $('shot').onclick = ()=>{
   a.href=cv.toDataURL('image/png'); a.click();
 };
 $('pick').onclick = ()=> $('file').click();
-$('file').onchange = e=>{
+$('snap').onclick = ()=> $('fileCam').click();
+function loadPhoto(e){
   const f=e.target.files[0]; if (!f) return;
-  const img=new Image(); img.onload=()=>{ photo.img=img; pos.photo={u:.5,v:.85}; clampPhotoTree(); resetView(); draw(); };
-  img.src=URL.createObjectURL(f);
-};
+  const img=new Image(); img.onload=()=>{ photo.img=img; photo.horizon=.5; pos.photo={u:.5,v:.85}; clampPhotoTree(); resetView(); draw(); };
+  img.src=URL.createObjectURL(f); e.target.value='';
+}
+$('file').onchange = loadPhoto; $('fileCam').onchange = loadPhoto;
 $('camH').oninput = e=>{ photo.hc = clamp(+e.target.value||140, 40, 250); draw(); };
 
 let hintTimer;
