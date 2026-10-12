@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulator brad – prototip</title>
+<style>
+:root{
+  --green:#1f3d2b; --green-2:#2c5a3f; --gold:#c9a45c; --gold-2:#e2c88f;
+  --cream:#faf7f1; --ink:#1d2320; --muted:#6c736e; --line:#e6e0d4; --card:#ffffff;
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--cream);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit}
+
+/* ---------- pagina de produs simulată ---------- */
+.page{max-width:1100px;margin:0 auto;padding:24px 16px 60px;display:grid;grid-template-columns:1fr 1fr;gap:36px}
+.page img{width:100%;border-radius:var(--radius);display:block}
+.crumbs{font-size:13px;color:var(--muted);margin-bottom:8px}
+.page h1{font-size:24px;line-height:1.25;margin:0 0 10px}
+.price{font-size:26px;font-weight:700;color:var(--green);margin:6px 0 16px}
+.label{font-size:13px;color:var(--muted);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.06em}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 14px;cursor:pointer;transition:.15s}
+.chip:hover{border-color:var(--gold)}
+.chip[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:#fff}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:10px;padding:13px 18px;font-weight:600;cursor:pointer;text-decoration:none}
+.btn-cart{background:var(--green);color:#fff}
+.btn-3d{margin-top:12px;width:100%;background:linear-gradient(135deg,#fff,#fbf3e3);color:var(--green);border:1.5px solid var(--gold);font-size:16px;padding:15px}
+.btn-3d:hover{background:#fbf0d9}
+.row{display:flex;gap:10px;margin-top:20px}
+.note{font-size:12.5px;color:var(--muted);margin-top:18px;border-top:1px dashed var(--line);padding-top:12px}
+@media (max-width:760px){.page{grid-template-columns:1fr;gap:18px}.page h1{font-size:20px}}
+
+/* ---------- modal simulator ---------- */
+.sim{position:fixed;inset:0;z-index:50;background:#141a16;display:none;flex-direction:column}
+.sim.open{display:flex}
+.sim-top{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#101511;color:#f3efe6;border-bottom:1px solid #26302a}
+.sim-top .t{font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sim-top .t small{color:#a9b3ab;font-weight:400;margin-left:6px}
+.x{width:38px;height:38px;border-radius:50%;border:1px solid #3a463e;background:transparent;color:#fff;font-size:20px;cursor:pointer}
+.sim-body{flex:1;display:flex;min-height:0}
+.stage{position:relative;flex:1;min-width:0;background:#0d110e}
+canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+canvas.dragging{cursor:grabbing}
+.tools{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:8px}
+.tool{width:42px;height:42px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:rgba(16,21,17,.72);color:#fff;font-size:18px;cursor:pointer;backdrop-filter:blur(6px)}
+.tool:hover{background:rgba(31,61,43,.9)}
+.hint{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:rgba(16,21,17,.78);color:#f3efe6;padding:8px 14px;border-radius:999px;font-size:13px;pointer-events:none;transition:opacity .6s;white-space:nowrap}
+.badge{position:absolute;left:12px;bottom:12px;background:rgba(16,21,17,.72);color:#e2c88f;font-size:11.5px;padding:5px 10px;border-radius:8px;pointer-events:none}
+.panel{width:330px;flex:none;background:var(--cream);overflow:auto;padding:16px 16px 20px;border-left:1px solid #26302a}
+.panel h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px}
+.panel h3:first-child{margin-top:0}
+.sizes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.size{border:1px solid var(--line);background:#fff;border-radius:12px;padding:9px 6px;text-align:center;cursor:pointer}
+.size b{display:block;font-size:16px}
+.size span{font-size:12px;color:var(--muted)}
+.size[aria-pressed="true"]{border-color:var(--green);box-shadow:0 0 0 2px var(--green) inset}
+.dims{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dim{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.dim small{display:block;color:var(--muted);font-size:12px}
+.dim b{font-size:18px}
+.toggle{display:flex;align-items:center;justify-content:space-between;padding:9px 2px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
+.toggle input{width:18px;height:18px;accent-color:var(--green)}
+.cta{position:sticky;bottom:-20px;background:var(--cream);padding:14px 0 6px;margin-top:14px}
+.cta .btn{width:100%;font-size:16px}
+.cta small{display:block;text-align:center;color:var(--muted);font-size:12px;margin-top:6px}
+.photo-tools{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;font-size:13.5px}
+.photo-tools label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.photo-tools input[type=number]{width:80px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit}
+.photo-tools .btn{width:100%;padding:9px;background:var(--green-2);color:#fff;margin-top:4px}
+.photo-tools p{margin:8px 0 0;color:var(--muted);font-size:12.5px}
+.hidden{display:none!important}
+
+@media (max-width:820px){
+  .sim-body{flex-direction:column}
+  .panel{width:auto;max-height:46%;border-left:0;border-top:1px solid #26302a;padding:12px 14px 14px}
+  .panel h3{margin:10px 0 6px}
+  .rooms{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+  .rooms .chip{white-space:nowrap}
+  .tool{width:40px;height:40px}
+  .hint{font-size:12px;white-space:normal;width:max-content;max-width:90%;text-align:center}
+}
+</style>
+</head>
+<body>
+
+<!-- Pagina de produs simulată (în producție: pagina WooCommerce reală) -->
+<main class="page">
+  <div><img src="__ORIG__" alt="Brad Frasin de Munte în showroom"></div>
+  <div>
+    <div class="crumbs">Sezon iarnă › Brazi artificiali</div>
+    <h1 id="pTitle"></h1>
+    <div class="price" id="pPrice"></div>
+    <div class="label">Înălțime (produse separate)</div>
+    <div class="chips" id="pSizes"></div>
+    <div class="row"><a class="btn btn-cart" id="pCart" target="_blank" rel="noopener">Adaugă în coș</a></div>
+    <button class="btn btn-3d" id="open3d">🎄 Vezi bradul în 3D în camera ta</button>
+    <p class="note">Prototip local. Pagina de mai sus imită pagina de produs doar ca să arate fluxul.
+      Butonul „Adaugă în coș” deschide pagina reală a produsului de pe sersimo.ro pentru înălțimea aleasă.</p>
+  </div>
+</main>
+
+<!-- Simulator -->
+<section class="sim" id="sim" role="dialog" aria-modal="true" aria-label="Simulator brad">
+  <div class="sim-top">
+    <div class="t" id="sTitle"></div>
+    <button class="x" id="close" aria-label="Închide">×</button>
+  </div>
+  <div class="sim-body">
+    <div class="stage" id="stage">
+      <canvas id="cv"></canvas>
+      <div class="hint" id="hint">Trage bradul ca să-l muți · rotița / 2 degete pentru zoom</div>
+      <div class="badge">Prototip · scară calibrată</div>
+      <div class="tools">
+        <button class="tool" id="zin" title="Zoom in">+</button>
+        <button class="tool" id="zout" title="Zoom out">−</button>
+        <button class="tool" id="reset" title="Resetează">⟲</button>
+        <button class="tool" id="shot" title="Captură de ecran">📷</button>
+      </div>
+    </div>
+    <aside class="panel">
+      <h3>Camera</h3>
+      <div class="chips rooms" id="rooms"></div>
+      <div class="photo-tools hidden" id="photoTools">
+        <button class="btn" id="pick">Încarcă o poză a camerei</button>
+        <input type="file" id="file" accept="image/*" class="hidden">
+        <label>Înălțimea aparatului foto (cm) <input type="number" id="camH" min="40" max="250" value="140"></label>
+        <p>Trage <b>linia aurie punctată</b> la nivelul ochilor fotografului (orizontul). Poza trebuie făcută cu telefonul ținut drept.</p>
+      </div>
+      <h3>Înălțime</h3>
+      <div class="sizes" id="sizes"></div>
+      <h3>Dimensiuni reale</h3>
+      <div class="dims">
+        <div class="dim"><small>Înălțime</small><b id="dH"></b></div>
+        <div class="dim"><small>Diametru la bază</small><b id="dD"></b></div>
+      </div>
+      <h3>Afișare</h3>
+      <label class="toggle">Cote (înălțime și diametru)<input type="checkbox" id="tDims" checked></label>
+      <label class="toggle">Compară cu celelalte înălțimi<input type="checkbox" id="tCmp"></label>
+      <label class="toggle">Siluetă om 1,70 m (referință)<input type="checkbox" id="tPerson"></label>
+      <div class="cta">
+        <a class="btn btn-cart" id="sCart" target="_blank" rel="noopener"></a>
+        <small id="sCartNote"></small>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<script>
+/* ============================================================
+   DATE PRODUS – în plugin vin din WooCommerce (JSON injectat)
+   ============================================================ */
+const PRODUCT = {
+  family: 'Frasin de Munte 2D',
+  name: 'Brad artificial Christmas Deluxe by Sersimo Frasin de Munte 2D',
+  sizes: [
+    {h:180, d:115, price:378, id:67574,  url:'https://sersimo.ro/product/brad-artificial-christmas-deluxe-by-sersimo-frasin-de-munte-2d-180cm/'},
+    {h:220, d:135, price:449, id:67553,  url:'https://sersimo.ro/product/brad-artificial-christmas-deluxe-by-sersimo-frasin-de-munte-2d-220cm/'},
+    {h:240, d:150, price:542, id:146361, url:'https://sersimo.ro/product/brad-artificial-christmas-deluxe-by-sersimo-frasin-de-munte-2d-240cm/'},
+  ],
+  // decupaj: PNG-ul merge de la vârf (sus) până la picioarele suportului (jos)
+  cutout: { src:'__TREE__', baseX:0.545 },
+};
+let sizeIdx = 1;
+
+/* ============================================================
+   CAMERE – geometrie simplă în centimetri.
+   Camera foto: înălțime hc, privire orizontală => scară exactă:
+   px_per_cm la un punct de pe podea = (Ypodea − Yorizont) / hc
+   ============================================================ */
+const ROOM_W = 500, ROOM_D = 650, ROOM_H = 270;
+const ROOMS = [
+  { id:'living', name:'Living modern', hc:140, start:{x:135,z:440},
+    blocks:[ [-230,-30,570,650], [40,220,605,650], [200,240,585,625] ] },
+  { id:'empty',  name:'Cameră goală',  hc:140, start:{x:0,z:420}, blocks:[] },
+  { id:'photo',  name:'Camera ta (poză)', photo:true },
+];
+let room = ROOMS[0];
+const pos = { living:{...ROOMS[0].start}, empty:{...ROOMS[1].start}, photo:{u:.5,v:.85} };
+const photo = { img:null, horizon:.45, hc:140 };
+
+/* ---------- stare afișare ---------- */
+const opt = { dims:true, cmp:false, person:false };
+const view = { s:1, ox:0, oy:0 };
+
+/* ---------- canvas ---------- */
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1, cam = null;
+const treeImg = new Image(); treeImg.src = PRODUCT.cutout.src; treeImg.onload = draw;
+
+function resize(){
+  const r = cv.getBoundingClientRect();
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = r.width; H = r.height;
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+  draw();
+}
+function setupCam(){
+  if (room.photo){
+    if (!photo.img){ cam = null; return; }
+    const iw = photo.img.width, ih = photo.img.height, sc = Math.min(W/iw, H/ih);
+    const w = iw*sc, h = ih*sc, x = (W-w)/2, y = (H-h)/2;
+    cam = { photo:true, x, y, w, h, hy: y + photo.horizon*h, hc: photo.hc, f: Math.max(w,h)*0.85 };
+  } else {
+    const f = Math.max(0.78*W, 0.62*H);
+    cam = { cx:W/2, hy:H*0.40, f, hc:room.hc };
+  }
+}
+const P = (x,y,z) => [cam.cx + cam.f*x/z, cam.hy - cam.f*(y-cam.hc)/z];
+
+/* ---------- utilitare desen ---------- */
+function poly(pts, fill, stroke){
+  ctx.beginPath(); pts.forEach((p,i)=> i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath();
+  if (fill){ ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke){ ctx.strokeStyle = stroke; ctx.stroke(); }
+}
+function shade(hex, k){ // k>0 deschide, k<0 închide
+  const n = parseInt(hex.slice(1),16); let r=n>>16, g=n>>8&255, b=n&255;
+  const t = k<0?0:255, a = Math.abs(k);
+  r=Math.round(r+(t-r)*a); g=Math.round(g+(t-g)*a); b=Math.round(b+(t-b)*a);
+  return `rgb(${r},${g},${b})`;
+}
+function box(x0,x1,y0,y1,z0,z1,col){
+  if (x0>0) poly([P(x0,y0,z0),P(x0,y0,z1),P(x0,y1,z1),P(x0,y1,z0)], shade(col,-.22));
+  if (x1<0) poly([P(x1,y0,z0),P(x1,y0,z1),P(x1,y1,z1),P(x1,y1,z0)], shade(col,-.22));
+  if (y1<cam.hc) poly([P(x0,y1,z0),P(x1,y1,z0),P(x1,y1,z1),P(x0,y1,z1)], shade(col,.12));
+  if (y0>cam.hc) poly([P(x0,y0,z0),P(x1,y0,z0),P(x1,y0,z1),P(x0,y0,z1)], shade(col,-.3));
+  poly([P(x0,y0,z0),P(x1,y0,z0),P(x1,y1,z0),P(x0,y1,z0)], col);
+}
+function rng(seed){ return ()=> (seed = (seed*16807) % 2147483647) / 2147483647; }
+
+/* ---------- arhitectura camerei ---------- */
+const XL=-ROOM_W/2, XR=ROOM_W/2, ZN=30, ZB=ROOM_D;
+function drawShell(c){
+  // tavan
+  poly([P(XL,ROOM_H,ZN),P(XR,ROOM_H,ZN),P(XR,ROOM_H,ZB),P(XL,ROOM_H,ZB)], c.ceil);
+  // perete spate
+  const [bx0,by0] = P(XL,ROOM_H,ZB), [bx1,by1] = P(XR,0,ZB);
+  let g = ctx.createLinearGradient(0,by0,0,by1); g.addColorStop(0,shade(c.wall,.06)); g.addColorStop(1,shade(c.wall,-.06));
+  poly([P(XL,0,ZB),P(XR,0,ZB),P(XR,ROOM_H,ZB),P(XL,ROOM_H,ZB)], g);
+  // pereți laterali
+  const [lx0] = P(XL,0,ZN), [lx1] = P(XL,0,ZB);
+  g = ctx.createLinearGradient(lx0,0,lx1,0); g.addColorStop(0,shade(c.wall,c.leftLight?.1:-.12)); g.addColorStop(1,shade(c.wall,-.04));
+  poly([P(XL,0,ZN),P(XL,0,ZB),P(XL,ROOM_H,ZB),P(XL,ROOM_H,ZN)], g);
+  const [rx0] = P(XR,0,ZN), [rx1] = P(XR,0,ZB);
+  g = ctx.createLinearGradient(rx0,0,rx1,0); g.addColorStop(0,shade(c.wall,-.2)); g.addColorStop(1,shade(c.wall,-.1));
+  poly([P(XR,0,ZN),P(XR,0,ZB),P(XR,ROOM_H,ZB),P(XR,ROOM_H,ZN)], g);
+  // podea + parchet
+  const [, fy0] = P(0,0,ZB);
+  g = ctx.createLinearGradient(0,fy0,0,H); g.addColorStop(0,shade(c.floor,-.08)); g.addColorStop(1,shade(c.floor,.06));
+  poly([P(XL,0,ZN),P(XR,0,ZN),P(XR,0,ZB),P(XL,0,ZB)], g);
+  ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(60,35,15,.13)';
+  const R = rng(7);
+  for (let x=XL; x<XR; x+=c.plank){
+    ctx.beginPath(); let a=P(x,0,ZN), b=P(x,0,ZB); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke();
+    for (let z=ZN+R()*120; z<ZB; z+=110+R()*70){ a=P(x,0,z); b=P(x+c.plank,0,z); ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); }
+    // mică variație de culoare pe scândură
+    ctx.fillStyle = `rgba(${R()<.5?'255,240,220':'80,50,20'},${R()*.06})`;
+    poly([P(x,0,ZN),P(x+c.plank,0,ZN),P(x+c.plank,0,ZB),P(x,0,ZB)], ctx.fillStyle);
+  }
+  // plinte
+  const pl = shade(c.wall,.1);
+  poly([P(XL,0,ZB),P(XR,0,ZB),P(XR,8,ZB),P(XL,8,ZB)], pl);
+  poly([P(XL,0,ZN),P(XL,0,ZB),P(XL,8,ZB),P(XL,8,ZN)], shade(c.wall,0));
+  poly([P(XR,0,ZN),P(XR,0,ZB),P(XR,8,ZB),P(XR,8,ZN)], shade(c.wall,-.15));
+}
+
+/* Living modern */
+const LIVING = { wall:'#e8e2d8', ceil:'#f1ede6', floor:'#b7895e', plank:19, leftLight:true };
+function livingBack(){
+  drawShell(LIVING);
+  // fereastră pe peretele din stânga
+  const w = [P(XL,85,240),P(XL,85,500),P(XL,245,500),P(XL,245,240)];
+  const g = ctx.createLinearGradient(w[0][0],0,w[1][0],0); g.addColorStop(0,'#eef4f7'); g.addColorStop(1,'#cfdde6');
+  poly(w,'#f7f5f0'); poly([P(XL,92,250),P(XL,92,490),P(XL,238,490),P(XL,238,250)], g);
+  ctx.lineWidth = 3; ctx.strokeStyle='#f7f5f0';
+  ctx.beginPath(); ctx.moveTo(...P(XL,92,370)); ctx.lineTo(...P(XL,238,370)); ctx.stroke();
+  // lumină pe podea de la fereastră
+  poly([P(XL,0,250),P(XL,0,500),P(-60,0,560),P(-20,0,300)],'rgba(255,244,220,.16)');
+  // tablou deasupra canapelei
+  poly([P(-180,125,ZB),P(-80,125,ZB),P(-80,195,ZB),P(-180,195,ZB)],'#2b2f2c');
+  const [ax,ay]=P(-176,191,ZB), [bx,by]=P(-84,129,ZB);
+  const ag = ctx.createLinearGradient(ax,ay,bx,by); ag.addColorStop(0,'#c9a45c'); ag.addColorStop(.5,'#e8dcc4'); ag.addColorStop(1,'#7f8c7e');
+  poly([P(-176,129,ZB),P(-84,129,ZB),P(-84,191,ZB),P(-176,191,ZB)], ag);
+  // covor
+  poly([P(-210,0,400),P(60,0,400),P(60,0,560),P(-210,0,560)],'#d9d2c4');
+  poly([P(-200,0,410),P(50,0,410),P(50,0,550),P(-200,0,550)],'#cfc6b5');
+}
+const LIVING_ITEMS = [
+  { z:570, draw(){ // canapea
+      const c='#8d8f8a';
+      box(-230,-30,8,44,575,650,c); box(-226,-34,0,8,580,600,'#3a2d22');
+      box(-230,-30,44,88,622,650,shade(c,-.05));
+      box(-230,-208,8,64,575,650,shade(c,.02)); box(-52,-30,8,64,575,650,shade(c,.02));
+      box(-200,-160,44,74,605,622,'#b5643a'); box(-110,-72,44,72,606,622,'#d8c9a6');
+  }},
+  { z:605, draw(){ // comodă TV + TV
+      box(40,220,12,55,605,650,'#6b4a33'); box(46,52,0,12,610,616,'#222'); box(208,214,0,12,610,616,'#222');
+      poly([P(70,95,644),P(190,95,644),P(190,165,644),P(70,165,644)],'#121314');
+      const [x0,y0]=P(74,161,644),[x1,y1]=P(186,99,644);
+      const g=ctx.createLinearGradient(x0,y0,x1,y1); g.addColorStop(0,'#2a2e33'); g.addColorStop(.45,'#14171a'); g.addColorStop(1,'#0c0d0e');
+      poly([P(74,99,644),P(186,99,644),P(186,161,644),P(74,161,644)], g);
+      box(95,165,55,60,618,636,'#c7b79a');
+  }},
+  { z:585, draw(){ // plantă
+      box(204,236,0,46,589,621,'#d8d2c7');
+      const R = rng(3);
+      for (let i=0;i<26;i++){
+        const a = R()*Math.PI*2, rr = R()*24, y = 50+R()*80;
+        const [px,py] = P(220+Math.cos(a)*rr, y, 605+Math.sin(a)*rr*.6);
+        ctx.fillStyle = `hsl(${105+R()*30},${30+R()*20}%,${22+R()*16}%)`;
+        ctx.beginPath(); ctx.ellipse(px,py, 9*cam.f/600, 4*cam.f/600, a, 0, Math.PI*2); ctx.fill();
+      }
+  }},
+];
+
+/* Cameră goală */
+const EMPTY = { wall:'#ecebe8', ceil:'#f4f3f1', floor:'#cfb48f', plank:20 };
+function emptyBack(){
+  drawShell(EMPTY);
+  // ușă 205 cm pe peretele din stânga (referință de scară)
+  poly([P(XL,0,475),P(XL,0,567),P(XL,210,567),P(XL,210,475)],'#f8f8f6');
+  poly([P(XL,0,480),P(XL,0,562),P(XL,205,562),P(XL,205,480)],'#dcd8d0');
+  const [hx,hy] = P(XL,100,555); ctx.fillStyle='#8f8a80'; ctx.beginPath(); ctx.arc(hx,hy,3*cam.f/600,0,7); ctx.fill();
+  tag(P(XL,222,521), 'ușă 205 cm');
+  // linie înălțime tavan
+  const a=P(XR-4,0,ZB), b=P(XR-4,ROOM_H,ZB);
+  ctx.setLineDash([5,5]); ctx.strokeStyle='rgba(31,61,43,.55)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]);
+  tag([b[0]-4, (a[1]+b[1])/2], 'tavan 270 cm', 'right');
+  // grilă de 50 cm pe podea
+  ctx.strokeStyle='rgba(31,61,43,.10)'; ctx.lineWidth=1;
+  for (let z=100; z<=ZB; z+=50){ ctx.beginPath(); ctx.moveTo(...P(XL,0,z)); ctx.lineTo(...P(XR,0,z)); ctx.stroke(); }
+}
+
+/* ---------- etichete ---------- */
+function tag(p, text, align='center', dark=true){
+  ctx.font = '600 12px system-ui,sans-serif';
+  const w = ctx.measureText(text).width + 14, h = 22;
+  let x = align==='right' ? p[0]-w : align==='left' ? p[0] : p[0]-w/2, y = p[1]-h/2;
+  ctx.fillStyle = dark ? 'rgba(20,32,25,.86)' : 'rgba(255,255,255,.92)';
+  ctx.beginPath(); ctx.roundRect(x,y,w,h,11); ctx.fill();
+  ctx.fillStyle = dark ? '#f3e6c6' : '#1f3d2b'; ctx.textBaseline='middle'; ctx.fillText(text, x+7, y+h/2+.5);
+}
+
+/* ---------- bradul: poziție ecran + scară ---------- */
+function treeScreen(){
+  if (room.photo){
+    const p = pos.photo, X = cam.x + p.u*cam.w, Y = cam.y + p.v*cam.h;
+    return { X, Y, k:(Y-cam.hy)/cam.hc, flat:(Y-cam.hy)/cam.f };
+  }
+  const p = pos[room.id], [X,Y] = P(p.x,0,p.z);
+  return { X, Y, k:cam.f/p.z, flat:cam.hc/p.z };
+}
+function treeRect(t, s){
+  const h = s.h*t.k, w = h*treeImg.width/treeImg.height;
+  return { x:t.X - PRODUCT.cutout.baseX*w, y:t.Y - h, w, h };
+}
+function drawShadow(t, s){
+  const rx = s.d*0.55*t.k, ry = Math.max(rx*t.flat, 3);
+  let g = ctx.createRadialGradient(t.X,t.Y,0,t.X,t.Y,rx);
+  g.addColorStop(0,'rgba(0,0,0,.42)'); g.addColorStop(.55,'rgba(0,0,0,.18)'); g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.save(); ctx.translate(t.X,t.Y); ctx.scale(1, ry/rx); ctx.translate(-t.X,-t.Y);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(t.X,t.Y,rx,0,7); ctx.fill(); ctx.restore();
+}
+function drawTree(){
+  if (!treeImg.complete || !treeImg.width) return;
+  const t = treeScreen(), s = PRODUCT.sizes[sizeIdx];
+  if (opt.cmp){ // fantome pentru înălțimile mai mari, în spate
+    PRODUCT.sizes.forEach((o,i)=>{ if (o.h>s.h){ const r=treeRect(t,o); ctx.globalAlpha=.2; ctx.drawImage(treeImg,r.x,r.y,r.w,r.h); ctx.globalAlpha=1; } });
+  }
+  drawShadow(t, s);
+  const r = treeRect(t, s);
+  ctx.drawImage(treeImg, r.x, r.y, r.w, r.h);
+  if (opt.cmp){ // linii de nivel pentru toate înălțimile
+    PRODUCT.sizes.forEach(o=>{ if (o===s) return; const y=t.Y-o.h*t.k;
+      ctx.setLineDash([6,5]); ctx.strokeStyle='rgba(226,200,143,.95)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(t.X-o.d*.45*t.k,y); ctx.lineTo(t.X+o.d*.45*t.k,y); ctx.stroke(); ctx.setLineDash([]);
+      tag([t.X-o.d*.45*t.k-4, y], o.h+' cm', 'right');
+    });
+  }
+  if (opt.person) drawPerson(t, s);
+  if (opt.dims) drawDims(t, s);
+}
+function drawDims(t, s){
+  const k=t.k, top=t.Y-s.h*k, x=t.X + (s.d/2+18)*k;
+  ctx.strokeStyle='#e2c88f'; ctx.lineWidth=2; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(x,t.Y); ctx.lineTo(x,top);
+  ctx.moveTo(x-7,t.Y); ctx.lineTo(x+7,t.Y); ctx.moveTo(x-7,top); ctx.lineTo(x+7,top); ctx.stroke();
+  tag([x+6,(t.Y+top)/2], s.h+' cm', 'left');
+  // diametru: elipsă pe podea în perspectivă
+  const rx = s.d/2*k, ry = Math.max(rx*t.flat, 2);
+  ctx.setLineDash([6,5]); ctx.beginPath(); ctx.ellipse(t.X,t.Y,rx,ry,0,0,7); ctx.stroke(); ctx.setLineDash([]);
+  tag([t.X, t.Y+ry+14], 'Ø '+s.d+' cm');
+}
+function drawPerson(t, s){
+  const k=t.k, bx=t.X - (s.d/2+45)*k, by=t.Y;
+  const Y = v => by - v*k, X = v => bx + v*k;
+  ctx.fillStyle='rgba(28,34,40,.62)';
+  ctx.beginPath(); ctx.arc(X(0),Y(158),11*k,0,7); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(X(-21),Y(145),42*k,62*k,12*k); ctx.fill();          // trunchi
+  ctx.beginPath(); ctx.roundRect(X(-27),Y(143),9*k,58*k,5*k); ctx.fill();             // brațe
+  ctx.beginPath(); ctx.roundRect(X(18),Y(143),9*k,58*k,5*k); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(X(-17),Y(88),15*k,88*k,6*k); ctx.fill();             // picioare
+  ctx.beginPath(); ctx.roundRect(X(2),Y(88),15*k,88*k,6*k); ctx.fill();
+  tag([X(0), Y(178)], '1,70 m');
+}
+
+/* ---------- desen principal ---------- */
+function draw(){
+  if (!W) return;
+  setupCam();
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.fillStyle='#0d110e'; ctx.fillRect(0,0,W,H);
+  ctx.setTransform(DPR*view.s,0,0,DPR*view.s,DPR*view.ox,DPR*view.oy);
+  if (room.photo){ drawPhotoRoom(); }
+  else {
+    room.id==='living' ? livingBack() : emptyBack();
+    const items = room.id==='living' ? LIVING_ITEMS : [];
+    const tz = pos[room.id].z;
+    items.filter(i=>i.z>tz).forEach(i=>i.draw());     // obiecte din spatele bradului
+    drawTree();
+    items.filter(i=>i.z<=tz).forEach(i=>i.draw());    // obiecte din fața bradului
+    vignette();
+  }
+}
+function vignette(){
+  const g = ctx.createRadialGradient(W/2,H*.45,Math.min(W,H)*.35,W/2,H*.5,Math.max(W,H)*.75);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(10,8,4,.28)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+}
+function drawPhotoRoom(){
+  if (!cam){
+    ctx.fillStyle='#a9b3ab'; ctx.font='15px system-ui,sans-serif'; ctx.textAlign='center';
+    ctx.fillText('Încarcă o poză a camerei din panoul lateral', W/2, H/2); ctx.textAlign='start';
+    return;
+  }
+  ctx.drawImage(photo.img, cam.x, cam.y, cam.w, cam.h);
+  drawTree();
+  // linia orizontului (calibrare)
+  ctx.setLineDash([8,6]); ctx.strokeStyle='#e2c88f'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(cam.x,cam.hy); ctx.lineTo(cam.x+cam.w,cam.hy); ctx.stroke(); ctx.setLineDash([]);
+  tag([cam.x+10, cam.hy], 'orizont · aparat la '+photo.hc+' cm (trage)', 'left');
+}
+
+/* ---------- interacțiune ---------- */
+const pointers = new Map();
+let drag = null, pinch = null;
+const toScene = (px,py) => [(px-view.ox)/view.s, (py-view.oy)/view.s];
+function local(e){ const r=cv.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; }
+
+cv.addEventListener('pointerdown', e=>{
+  cv.setPointerCapture(e.pointerId);
+  const p = local(e); pointers.set(e.pointerId, p); hideHint();
+  if (pointers.size===2){ const [a,b]=[...pointers.values()]; pinch={d:Math.hypot(a[0]-b[0],a[1]-b[1]), s:view.s, ox:view.ox, oy:view.oy, mx:(a[0]+b[0])/2, my:(a[1]+b[1])/2}; drag=null; return; }
+  const [sx,sy] = toScene(...p);
+  if (room.photo && cam && Math.abs(sy-cam.hy) < 14/view.s){ drag={type:'horizon'}; }
+  else if (cam && hitTree(sx,sy)){ const t=treeScreen(); drag={type:'tree', dx:sx-t.X, dy:sy-t.Y}; }
+  else drag={type:'pan', px:p[0], py:p[1], ox:view.ox, oy:view.oy};
+  cv.classList.add('dragging');
+});
+cv.addEventListener('pointermove', e=>{
+  if (!pointers.has(e.pointerId)) return;
+  const p = local(e); pointers.set(e.pointerId, p);
+  if (pinch && pointers.size===2){
+    const [a,b]=[...pointers.values()], d=Math.hypot(a[0]-b[0],a[1]-b[1]);
+    zoomAt(pinch.mx, pinch.my, pinch.s*d/pinch.d, pinch); return;
+  }
+  if (!drag) return;
+  const [sx,sy] = toScene(...p);
+  if (drag.type==='horizon'){ photo.horizon = clamp((sy-cam.y)/cam.h, .05, .9); clampPhotoTree(); }
+  else if (drag.type==='tree') moveTree(sx-drag.dx, sy-drag.dy);
+  else if (view.s>1){ view.ox = drag.ox + p[0]-drag.px; view.oy = drag.oy + p[1]-drag.py; clampView(); }
+  draw();
+});
+['pointerup','pointercancel'].forEach(ev=>cv.addEventListener(ev, e=>{
+  pointers.delete(e.pointerId); if (pointers.size<2) pinch=null; if (!pointers.size){ drag=null; cv.classList.remove('dragging'); }
+}));
+cv.addEventListener('wheel', e=>{ e.preventDefault(); hideHint(); const p=local(e); zoomAt(p[0],p[1], view.s*Math.exp(-e.deltaY*.0015)); draw(); }, {passive:false});
+
+function hitTree(sx,sy){
+  const r = treeRect(treeScreen(), PRODUCT.sizes[sizeIdx]);
+  return sx>r.x+r.w*.1 && sx<r.x+r.w*.9 && sy>r.y && sy<r.y+r.h+10;
+}
+function moveTree(X,Y){
+  if (room.photo){ pos.photo.u=(X-cam.x)/cam.w; pos.photo.v=(Y-cam.y)/cam.h; clampPhotoTree(); return; }
+  if (Y < cam.hy+4) Y = cam.hy+4;
+  let z = cam.f*cam.hc/(Y-cam.hy), x = (X-cam.cx)*z/cam.f;
+  const s = PRODUCT.sizes[sizeIdx], r = s.d/2*.75, p = pos[room.id];
+  const zMin = cam.f*cam.hc/(H*0.97-cam.hy);
+  z = clamp(z, zMin, ZB-r); x = clamp(x, XL+r, XR-r);
+  // nu permite suprapunerea cu mobila (alunecă pe axa liberă)
+  if (!blocked(x,z,r)) { p.x=x; p.z=z; }
+  else if (!blocked(x,p.z,r)) p.x=x;
+  else if (!blocked(p.x,z,r)) p.z=z;
+}
+function blocked(x,z,r){
+  return (room.blocks||[]).some(([x0,x1,z0,z1])=>{
+    const dx=Math.max(x0-x,0,x-x1), dz=Math.max(z0-z,0,z-z1); return dx*dx+dz*dz < r*r;
+  });
+}
+function clampPhotoTree(){ const p=pos.photo; p.u=clamp(p.u,0,1); p.v=clamp(p.v, photo.horizon+.04, 1); }
+function zoomAt(px,py,s,base=view){
+  s = clamp(s,1,3.5);
+  const [sx,sy] = [(px-base.ox)/base.s, (py-base.oy)/base.s];
+  view.s=s; view.ox=px-sx*s; view.oy=py-sy*s; clampView(); draw();
+}
+function clampView(){ view.ox=clamp(view.ox, W-W*view.s, 0); view.oy=clamp(view.oy, H-H*view.s, 0); }
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------- UI ---------- */
+const $ = id => document.getElementById(id);
+const lei = n => n.toLocaleString('ro-RO')+' lei';
+function renderUI(){
+  const s = PRODUCT.sizes[sizeIdx];
+  $('pTitle').textContent = PRODUCT.name+' '+s.h+'cm';
+  $('pPrice').textContent = lei(s.price);
+  $('pCart').href = s.url; $('sCart').href = s.url;
+  $('sTitle').innerHTML = PRODUCT.family+' <small>'+s.h+' cm · '+lei(s.price)+'</small>';
+  $('sCart').textContent = 'Adaugă în coș · '+lei(s.price);
+  $('sCartNote').textContent = 'Produs: '+PRODUCT.family+' '+s.h+' cm (ID '+s.id+')';
+  $('dH').textContent = s.h+' cm'; $('dD').textContent = s.d+' cm';
+  $('pSizes').innerHTML = PRODUCT.sizes.map((o,i)=>`<button class="chip" data-i="${i}" aria-pressed="${i===sizeIdx}">${o.h} cm</button>`).join('');
+  $('sizes').innerHTML = PRODUCT.sizes.map((o,i)=>`<button class="size" data-i="${i}" aria-pressed="${i===sizeIdx}"><b>${o.h} cm</b><span>${lei(o.price)}</span></button>`).join('');
+  $('rooms').innerHTML = ROOMS.map(r=>`<button class="chip" data-r="${r.id}" aria-pressed="${r===room}">${r.name}</button>`).join('');
+  $('photoTools').classList.toggle('hidden', !room.photo);
+}
+document.addEventListener('click', e=>{
+  const b = e.target.closest('[data-i],[data-r]'); if (!b) return;
+  if (b.dataset.i) sizeIdx = +b.dataset.i;
+  if (b.dataset.r){ room = ROOMS.find(r=>r.id===b.dataset.r); resetView(); }
+  renderUI(); draw();
+});
+$('tDims').onchange = e=>{ opt.dims=e.target.checked; draw(); };
+$('tCmp').onchange = e=>{ opt.cmp=e.target.checked; draw(); };
+$('tPerson').onchange = e=>{ opt.person=e.target.checked; draw(); };
+$('zin').onclick = ()=> zoomAt(W/2,H/2,view.s*1.3);
+$('zout').onclick = ()=> zoomAt(W/2,H/2,view.s/1.3);
+function resetView(){ view.s=1; view.ox=0; view.oy=0; }
+$('reset').onclick = ()=>{
+  resetView();
+  if (room.photo) pos.photo={u:.5,v:.85}; else pos[room.id]={...room.start};
+  if (room.photo) clampPhotoTree();
+  draw();
+};
+$('shot').onclick = ()=>{
+  const a=document.createElement('a'); a.download='brad-'+PRODUCT.sizes[sizeIdx].h+'cm-'+room.id+'.png';
+  a.href=cv.toDataURL('image/png'); a.click();
+};
+$('pick').onclick = ()=> $('file').click();
+$('file').onchange = e=>{
+  const f=e.target.files[0]; if (!f) return;
+  const img=new Image(); img.onload=()=>{ photo.img=img; pos.photo={u:.5,v:.85}; clampPhotoTree(); resetView(); draw(); };
+  img.src=URL.createObjectURL(f);
+};
+$('camH').oninput = e=>{ photo.hc = clamp(+e.target.value||140, 40, 250); draw(); };
+
+let hintTimer;
+function hideHint(){ $('hint').style.opacity=0; }
+$('open3d').onclick = ()=>{
+  $('sim').classList.add('open'); document.body.style.overflow='hidden';
+  $('hint').style.opacity=1; clearTimeout(hintTimer); hintTimer=setTimeout(hideHint,4500);
+  requestAnimationFrame(resize);
+};
+$('close').onclick = ()=>{ $('sim').classList.remove('open'); document.body.style.overflow=''; };
+document.addEventListener('keydown', e=>{ if (e.key==='Escape') $('close').click(); });
+new ResizeObserver(()=>{ if ($('sim').classList.contains('open')) resize(); }).observe($('stage'));
+
+renderUI();
+</script>
+</body>
+</html>
