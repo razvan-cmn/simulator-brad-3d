@@ -70,6 +70,9 @@ canvas.dragging{cursor:grabbing}
 .photo-tools label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
 .photo-tools input[type=number]{width:80px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit}
 .photo-tools .btn{width:100%;padding:9px;background:var(--green-2);color:#fff;margin-top:4px}
+.photo-tools select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+.photo-tools input[type=range]{width:130px;accent-color:var(--green)}
+.photo-tools .sub{display:block;font-weight:600;margin-top:12px;color:var(--green)}
 .photo-tools p{margin:8px 0 0;color:var(--muted);font-size:12.5px}
 .hidden{display:none!important}
 
@@ -77,8 +80,7 @@ canvas.dragging{cursor:grabbing}
   .sim-body{flex-direction:column}
   .panel{width:auto;max-height:46%;border-left:0;border-top:1px solid #26302a;padding:12px 14px 14px}
   .panel h3{margin:10px 0 6px}
-  .rooms{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
-  .rooms .chip{white-space:nowrap}
+  .rooms .chip{padding:6px 12px}
   .tool{width:40px;height:40px}
   .hint{font-size:12px;white-space:normal;width:max-content;max-width:90%;text-align:center}
 }
@@ -112,12 +114,12 @@ canvas.dragging{cursor:grabbing}
     <div class="stage" id="stage">
       <canvas id="cv"></canvas>
       <div class="hint" id="hint">Trage bradul ca să-l muți · rotița / 2 degete pentru zoom</div>
-      <div class="badge">Prototip · scară calibrată</div>
+      <div class="badge">Prototip v3 · scară calibrată</div>
       <div class="tools">
         <button class="tool" id="zin" title="Zoom in">+</button>
         <button class="tool" id="zout" title="Zoom out">−</button>
         <button class="tool" id="reset" title="Resetează">⟲</button>
-        <button class="tool" id="shot" title="Captură de ecran">📷</button>
+        <button class="tool" id="shot" title="Captură de ecran">⤓</button>
       </div>
     </div>
     <aside class="panel">
@@ -130,6 +132,18 @@ canvas.dragging{cursor:grabbing}
         <input type="file" id="file" accept="image/*" class="hidden">
         <label>Înălțimea aparatului foto (cm) <input type="number" id="camH" min="40" max="250" value="140"></label>
         <p>Ține telefonul <b>drept</b> (nu înclinat în sus sau în jos), la nivelul pieptului. Linia aurie punctată (orizontul) pornește din mijlocul pozei; dacă poza e înclinată, trag-o la nivelul ochilor fotografului.</p>
+      </div>
+      <div class="photo-tools hidden" id="roomTools">
+        <span class="sub" style="margin-top:0">Dimensiunile camerei tale</span>
+        <label>Lățime (cm) <input type="number" id="rW" min="200" max="1000" step="10"></label>
+        <label>Lungime (cm) <input type="number" id="rD" min="200" max="1200" step="10"></label>
+        <label>Înălțime tavan (cm) <input type="number" id="rH" min="200" max="400" step="5"></label>
+        <span class="sub">Ușă</span>
+        <label>Perete <select id="dWall"><option value="left">stânga</option><option value="back">în față (spate)</option><option value="right">dreapta</option><option value="none">fără ușă</option></select></label>
+        <label>Poziție <input type="range" id="dPos" min="0" max="100"></label>
+        <label>Înălțime ușă (cm) <input type="number" id="dHt" min="180" max="260" step="5"></label>
+        <label>Lățime ușă (cm) <input type="number" id="dWd" min="60" max="160" step="5"></label>
+        <p>Măsoară cu ruleta. Valorile rămân salvate pe acest dispozitiv.</p>
       </div>
       <h3>Înălțime</h3>
       <div class="sizes" id="sizes"></div>
@@ -172,12 +186,19 @@ let sizeIdx = 1;
    Camera foto: înălțime hc, privire orizontală => scară exactă:
    px_per_cm la un punct de pe podea = (Ypodea − Yorizont) / hc
    ============================================================ */
-const ROOM_W = 500, ROOM_D = 650, ROOM_H = 270;
+let ROOM_W = 500, ROOM_D = 650, ROOM_H = 270;
+const CUSTOM_DEFAULT = { w:450, d:550, h:265, door:{ wall:'left', pos:75, h:205, w:90 } };
+const custom = loadCustom();
+function loadCustom(){
+  try { const v = JSON.parse(localStorage.getItem('s3d_room')); if (v && v.door) return v; } catch(e){}
+  return JSON.parse(JSON.stringify(CUSTOM_DEFAULT));
+}
+function saveCustom(){ try { localStorage.setItem('s3d_room', JSON.stringify(custom)); } catch(e){} }
 const ROOMS = [
-  { id:'living', name:'Living modern', hc:140, start:{x:135,z:440},
+  { id:'living', name:'Living modern', hc:140, dims:{w:500,d:650,h:270}, start:{x:135,z:440},
     blocks:[ [-230,-30,570,650], [40,220,605,650], [200,240,585,625] ] },
-  { id:'empty',  name:'Cameră goală',  hc:140, start:{x:0,z:420}, blocks:[] },
-  { id:'photo',  name:'Camera ta (poză)', photo:true },
+  { id:'empty',  name:'📐 Cameră goală (dimensiunile tale)',  hc:140, dims:custom, get start(){ return {x:0, z:Math.round(custom.d*.72)}; }, blocks:[] },
+  { id:'photo',  name:'📷 Camera ta (poză)', photo:true },
 ];
 let room = ROOMS[0];
 const pos = { living:{...ROOMS[0].start}, empty:{...ROOMS[1].start}, photo:{u:.5,v:.85} };
@@ -206,8 +227,13 @@ function setupCam(){
     const w = iw*sc, h = ih*sc, x = (W-w)/2, y = (H-h)/2;
     cam = { photo:true, x, y, w, h, hy: y + photo.horizon*h, hc: photo.hc, f: Math.max(w,h)*0.85 };
   } else {
-    const f = Math.max(0.78*W, 0.62*H);
-    cam = { cx:W/2, hy:H*0.40, f, hc:room.hc };
+    const d = room.dims;
+    ROOM_W = d.w; ROOM_D = d.d; ROOM_H = d.h; XL = -d.w/2; XR = d.w/2; ZB = d.d;
+    const hy = H*0.40;
+    let f = (W<H ? 0.8 : 0.6) * W * ZB / ROOM_W;                 // peretele din spate ocupă ~60–80% din lățime
+    f = Math.min(f, (hy - 0.04*H) * ZB / (ROOM_H - room.hc));    // tavanul rămâne vizibil
+    f = Math.min(f, 0.55 * ZB * (0.97*H - hy) / room.hc);        // podeaua vizibilă pe măcar 55% din lungime
+    cam = { cx:W/2, hy, f, hc:room.hc };
   }
 }
 const P = (x,y,z) => [cam.cx + cam.f*x/z, cam.hy - cam.f*(y-cam.hc)/z];
@@ -234,7 +260,7 @@ function box(x0,x1,y0,y1,z0,z1,col){
 function rng(seed){ return ()=> (seed = (seed*16807) % 2147483647) / 2147483647; }
 
 /* ---------- arhitectura camerei ---------- */
-const XL=-ROOM_W/2, XR=ROOM_W/2, ZN=30, ZB=ROOM_D;
+let XL=-ROOM_W/2, XR=ROOM_W/2, ZB=ROOM_D; const ZN=30;
 function drawShell(c){
   // tavan
   poly([P(XL,ROOM_H,ZN),P(XR,ROOM_H,ZN),P(XR,ROOM_H,ZB),P(XL,ROOM_H,ZB)], c.ceil);
@@ -322,29 +348,44 @@ const LIVING_ITEMS = [
 const EMPTY = { wall:'#ecebe8', ceil:'#f4f3f1', floor:'#cfb48f', plank:20 };
 function emptyBack(){
   drawShell(EMPTY);
-  // ușă 205 cm pe peretele din stânga (referință de scară)
-  poly([P(XL,0,475),P(XL,0,567),P(XL,210,567),P(XL,210,475)],'#f8f8f6');
-  poly([P(XL,0,480),P(XL,0,562),P(XL,205,562),P(XL,205,480)],'#dcd8d0');
-  const [hx,hy] = P(XL,100,555); ctx.fillStyle='#8f8a80'; ctx.beginPath(); ctx.arc(hx,hy,3*cam.f/600,0,7); ctx.fill();
-  tag(P(XL,222,521), 'ușă 205 cm');
+  // ușa (referință de scară), pe peretele ales
+  const dr = custom.door;
+  if (dr.wall !== 'none'){
+    const back = dr.wall==='back';
+    const lo = back ? XL : ZN, hi = back ? XR : ZB;
+    const c = clamp(lo + (hi-lo)*dr.pos/100, lo + dr.w/2 + 5, hi - dr.w/2 - 5);
+    const Q = (a,y) => back ? P(a,y,ZB-.5) : P(dr.wall==='left' ? XL+.5 : XR-.5, y, a);
+    const a0 = c-dr.w/2, a1 = c+dr.w/2;
+    poly([Q(a0-5,0),Q(a1+5,0),Q(a1+5,dr.h+5),Q(a0-5,dr.h+5)],'#f8f8f6');
+    poly([Q(a0,0),Q(a1,0),Q(a1,dr.h),Q(a0,dr.h)],'#dcd8d0');
+    const kn = Q(dr.wall==='right' ? a0+8 : a1-8, 100);
+    ctx.fillStyle='#8f8a80'; ctx.beginPath(); ctx.arc(kn[0],kn[1],3*cam.f/600,0,7); ctx.fill();
+    tag(Q(c, dr.h+18), 'ușă '+dr.h+' × '+dr.w+' cm');
+  }
   // linie înălțime tavan
   const a=P(XR-4,0,ZB), b=P(XR-4,ROOM_H,ZB);
   ctx.setLineDash([5,5]); ctx.strokeStyle='rgba(31,61,43,.55)'; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]);
-  tag([b[0]-4, (a[1]+b[1])/2], 'tavan 270 cm', 'right');
+  tag([b[0]-4, b[1]+(a[1]-b[1])*.12], 'tavan '+ROOM_H+' cm', 'right');
   // grilă de 50 cm pe podea
   ctx.strokeStyle='rgba(31,61,43,.10)'; ctx.lineWidth=1;
   for (let z=100; z<=ZB; z+=50){ ctx.beginPath(); ctx.moveTo(...P(XL,0,z)); ctx.lineTo(...P(XR,0,z)); ctx.stroke(); }
+  for (let x=Math.ceil(XL/50)*50; x<=XR; x+=50){ ctx.beginPath(); ctx.moveTo(...P(x,0,ZN+20)); ctx.lineTo(...P(x,0,ZB)); ctx.stroke(); }
+  // cote cameră
+  tag(P(0,22,ZB), 'lățime '+ROOM_W+' cm');
+  const zl = Math.max(cam.f*cam.hc/(H*0.9-cam.hy), ZN+40);
+  tag(P(XL,6,(zl+ZB)/2), 'lungime '+ROOM_D+' cm', 'left');
 }
 
 /* ---------- etichete ---------- */
-function tag(p, text, align='center', dark=true){
+function tag(p, text, align='center', dark=true, bg=null){
   ctx.font = '600 12px system-ui,sans-serif';
   const w = ctx.measureText(text).width + 14, h = 22;
   let x = align==='right' ? p[0]-w : align==='left' ? p[0] : p[0]-w/2, y = p[1]-h/2;
-  ctx.fillStyle = dark ? 'rgba(20,32,25,.86)' : 'rgba(255,255,255,.92)';
+  x = clamp(x, 4, Math.max(4, W-w-4));
+  ctx.fillStyle = bg || (dark ? 'rgba(20,32,25,.86)' : 'rgba(255,255,255,.92)');
   ctx.beginPath(); ctx.roundRect(x,y,w,h,11); ctx.fill();
-  ctx.fillStyle = dark ? '#f3e6c6' : '#1f3d2b'; ctx.textBaseline='middle'; ctx.fillText(text, x+7, y+h/2+.5);
+  ctx.fillStyle = bg ? '#fff' : dark ? '#f3e6c6' : '#1f3d2b'; ctx.textBaseline='middle'; ctx.fillText(text, x+7, y+h/2+.5);
 }
 
 /* ---------- bradul: poziție ecran + scară ---------- */
@@ -383,8 +424,16 @@ function drawTree(){
       tag([t.X-o.d*.45*t.k-4, y], o.h+' cm', 'right');
     });
   }
+  if (!room.photo) ceilingCheck(t, s);
   if (opt.person) drawPerson(t, s);
   if (opt.dims) drawDims(t, s);
+}
+function ceilingCheck(t, s){
+  const gap = ROOM_H - s.h;
+  if (gap >= 30) return;
+  const top = t.Y - Math.min(s.h, ROOM_H)*t.k - 16;
+  tag([t.X, top], gap < 0 ? 'Nu încape: tavanul are '+ROOM_H+' cm' : 'Doar '+gap+' cm până la tavan (fără stea)',
+      'center', true, gap < 0 ? 'rgba(160,30,30,.92)' : 'rgba(170,110,20,.92)');
 }
 function drawDims(t, s){
   const k=t.k, top=t.Y-s.h*k, x=t.X + (s.d/2+18)*k;
@@ -436,7 +485,7 @@ function vignette(){
 function drawPhotoRoom(){
   if (!cam){
     ctx.fillStyle='#a9b3ab'; ctx.font='15px system-ui,sans-serif'; ctx.textAlign='center';
-    ctx.fillText('Încarcă o poză a camerei din panoul lateral', W/2, H/2); ctx.textAlign='start';
+    ctx.fillText('Apasă „📷 Fă o poză acum” din panou', W/2, H/2); ctx.textAlign='start';
     return;
   }
   ctx.drawImage(photo.img, cam.x, cam.y, cam.w, cam.h);
@@ -528,6 +577,9 @@ function renderUI(){
   $('sizes').innerHTML = PRODUCT.sizes.map((o,i)=>`<button class="size" data-i="${i}" aria-pressed="${i===sizeIdx}"><b>${o.h} cm</b><span>${lei(o.price)}</span></button>`).join('');
   $('rooms').innerHTML = ROOMS.map(r=>`<button class="chip" data-r="${r.id}" aria-pressed="${r===room}">${r.name}</button>`).join('');
   $('photoTools').classList.toggle('hidden', !room.photo);
+  $('roomTools').classList.toggle('hidden', room.id!=='empty');
+  $('rW').value=custom.w; $('rD').value=custom.d; $('rH').value=custom.h;
+  $('dWall').value=custom.door.wall; $('dPos').value=custom.door.pos; $('dHt').value=custom.door.h; $('dWd').value=custom.door.w;
 }
 document.addEventListener('click', e=>{
   const b = e.target.closest('[data-i],[data-r]'); if (!b) return;
@@ -559,6 +611,22 @@ function loadPhoto(e){
   img.src=URL.createObjectURL(f); e.target.value='';
 }
 $('file').onchange = loadPhoto; $('fileCam').onchange = loadPhoto;
+function roomField(id, min, max, set){
+  const el = $(id), num = el.type==='number';
+  el.addEventListener(num ? 'change' : 'input', ()=>{
+    let v = el.value;
+    if (num){ v = clamp(Math.round(+v || min), min, max); el.value = v; }
+    else if (el.type==='range') v = +v;
+    set(v); saveCustom(); pos.empty = {...ROOMS[1].start}; draw();
+  });
+}
+roomField('rW', 200, 1000, v=>custom.w=v);
+roomField('rD', 200, 1200, v=>custom.d=v);
+roomField('rH', 200, 400, v=>custom.h=v);
+roomField('dWall', 0, 0, v=>custom.door.wall=v);
+roomField('dPos', 0, 100, v=>custom.door.pos=v);
+roomField('dHt', 180, 260, v=>custom.door.h=v);
+roomField('dWd', 60, 160, v=>custom.door.w=v);
 $('camH').oninput = e=>{ photo.hc = clamp(+e.target.value||140, 40, 250); draw(); };
 
 let hintTimer;
