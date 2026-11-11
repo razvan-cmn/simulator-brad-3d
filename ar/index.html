@@ -145,8 +145,10 @@ function updateDepth(xrFrame) {
   depthTex.image.data.set(bytes); depthTex.needsUpdate = true;
   occ.uOccUv.value.fromArray(d.normDepthBufferFromNormView.matrix);
   occ.uOccRaw.value = d.rawValueToMeters;
-  const bl = session.renderState.baseLayer;
-  occ.uOccVp.value.set(bl.framebufferWidth, bl.framebufferHeight);
+  const bl = renderer.xr.getBaseLayer() || session.renderState.baseLayer;
+  const w = bl && (bl.framebufferWidth || bl.textureWidth), h = bl && (bl.framebufferHeight || bl.textureHeight);
+  if (!w || !h) throw new Error('mărimea imaginii AR necunoscută');
+  occ.uOccVp.value.set(w, h);
   occ.uOccOn.value = 1;
 }
 
@@ -192,6 +194,10 @@ async function startXR() {
     const gltf = await new GLTFLoader().loadAsync(MODEL);
     tree.add(gltf.scene);
     tree.traverse(o => { if (o.isMesh) addOcclusion(o.material); });
+    try {
+      tree.visible = true; renderer.compile(scene, camera); tree.visible = false;
+      tree.traverse(o => { if (o.isMesh && o.material.map) renderer.initTexture(o.material.map); });
+    } catch (e) { console.warn('pregătire model', e); tree.visible = false; }
   }
   session = await navigator.xr.requestSession('immersive-ar', {
     requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay', 'depth-sensing'], domOverlay: { root: $('xr') },
@@ -205,7 +211,7 @@ async function startXR() {
   hitSrc = await session.requestHitTestSource({ space: viewer });
   try { touchSrc = await session.requestHitTestSourceForTransientInput({ profile: 'generic-touchscreen' }); } catch (e) { touchSrc = null; }
   placed = false; locked = false; dragging = false; scale = 1; rotY = 0; tree.visible = false; occ.uOccOn.value = 0;
-  occlusionOK = session.depthUsage === 'cpu-optimized';
+  occlusionOK = session.depthUsage === 'cpu-optimized'; occFailed = false; lastErr = '';
   msg('Îndreaptă telefonul spre podea și mișcă-l puțin…'); ui();
 
   session.addEventListener('selectstart', () => { if (placed && !locked) dragging = true; });
@@ -219,6 +225,9 @@ async function startXR() {
 }
 
 function place() {
+  try { placeInner(); } catch (e) { showErr('plasare', e); }
+}
+function placeInner() {
   if (!reticle.visible) return;
   tree.position.setFromMatrixPosition(reticle.matrix);
   tree.visible = true; placed = true; reticle.visible = false;
@@ -227,7 +236,17 @@ function place() {
   ui();
 }
 
+let lastErr = '', occFailed = false;
+function showErr(where, e) {
+  const t = where + ': ' + (e && e.message ? e.message : e);
+  if (t !== lastErr) { lastErr = t; console.error(t, e); msg('⚠ ' + t); setTimeout(() => { if ($('xrMsg').textContent === '⚠ ' + t) msg(''); }, 6000); }
+}
 function frame(t, xrFrame) {
+  // o eroare aici ar opri bucla și imaginea ar îngheța → prindem tot și mergem mai departe
+  try { frameInner(xrFrame); } catch (e) { showErr('AR', e); }
+  try { renderer.render(scene, camera); } catch (e) { showErr('desen', e); }
+}
+function frameInner(xrFrame) {
   if (!xrFrame) return;
   if (!placed && hitSrc) {
     const hits = xrFrame.getHitTestResults(hitSrc);
@@ -247,8 +266,10 @@ function frame(t, xrFrame) {
       }
     }
   }
-  if (placed) updateDepth(xrFrame);
-  renderer.render(scene, camera);
+  if (placed && occlusionOK && !occFailed) {
+    try { updateDepth(xrFrame); }
+    catch (e) { occFailed = true; occ.uOccOn.value = 0; showErr('ocluzie oprită', e); }
+  }
 }
 
 // atingerile pe butoane nu trebuie să mute bradul
