@@ -288,6 +288,16 @@ def build_tree(h_cm, d_cm, seed, variants, density, aspect=.45, cones=0.0, berri
                     q = add(q, out, .02)
                     rb = rnd2.uniform(.012, .015)
                     ellipsoid(wood, q, (0, 1, 0), rb * 2, rb, (0.80, 0.04, 0.09), rings=5, seg=7)
+    # --- scară exactă: dimensiunile produsului = cutia exterioară a modelului
+    # (plăcile crengilor ies puțin peste rază, iar vârful peste înălțime → corectăm la final)
+    allp = leaves.P + wood.P
+    ymin = min(p[1] for p in allp)
+    ymax = max(p[1] for p in allp)
+    wx = max(p[0] for p in allp) - min(p[0] for p in allp)
+    wz = max(p[2] for p in allp) - min(p[2] for p in allp)
+    sy, sxz = H / (ymax - ymin), (2 * R) / max(wx, wz)
+    for m in (leaves, wood):
+        m.P = [(x * sxz, (y - ymin) * sy, z * sxz) for x, y, z in m.P]
     return leaves, wood
 
 
