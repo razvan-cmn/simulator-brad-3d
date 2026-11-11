@@ -1,4 +1,4 @@
-/* Sersimo – Simulator brad (v1.2.0)
+/* Sersimo – Simulator brad (v1.2.3)
  * Datele vin din window.SSB_CONFIG (injectat de plugin, vezi includes/class-ssb-frontend.php):
  * { family, name, current, sizes:[{id,h,d,price,priceText,url,cartUrl,inStock,cutout,baseX}],
  *   ajaxUrl, brand, buttonText }
@@ -52,7 +52,7 @@
   root.id = 'ssb-sim'; root.className = 'ssb-sim';
   root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', 'Simulator brad');
   root.innerHTML = `
-  <div class="ssb-top"><div class="ssb-t" data-ssb="title"></div><button type="button" class="ssb-x" data-ssb="close" aria-label="Închide">×</button></div>
+  <div class="ssb-top"><div class="ssb-t" data-ssb="title"></div><button type="button" class="ssb-x" data-ssb="close"><span aria-hidden="true">×</span> Întoarce-te la produs</button></div>
   <div class="ssb-body">
     <div class="ssb-stage" data-ssb="stage">
       <canvas class="ssb-cv"></canvas>
@@ -96,6 +96,7 @@
           <button type="button" class="ssb-btn" data-ssb="snap">📷 Fă o poză</button>
           <button type="button" class="ssb-btn ssb-btn-ghost" data-ssb="pick">🖼 Din galerie</button>
         </div>
+        <p class="ssb-privacy">🔒 Poza rămâne pe ${isTouch ? 'telefonul' : 'calculatorul'} tău. Nu o trimitem și nu o salvăm nicăieri.</p>
         <input type="file" data-ssb="file" accept="image/*" class="ssb-hidden">
         <input type="file" data-ssb="fileCam" accept="image/*" capture="environment" class="ssb-hidden">
         <p data-ssb="photoTip">Stai la 3–4 m de locul bradului și ține telefonul <b>drept</b> (nu înclinat în sus sau în jos), la nivelul pieptului. Prinde în poză podeaua din locul bradului.</p>
@@ -429,12 +430,12 @@
   const emptyItems = () => presetItems().map(it => ({ z: (it.z0 + it.z1) / 2, draw: () => it.kind === 'sofa' ? drawSofa(it) : drawTable(it) }));
 
   function tag(p, text, align = 'center', dark = true) {
-    ctx.font = '600 12px system-ui,sans-serif';
+    ctx.font = '500 13px Oswald,"Arial Narrow",system-ui,sans-serif';
     const w = ctx.measureText(text).width + 14, h = 22;
     const x = align === 'right' ? p[0] - w : align === 'left' ? p[0] : p[0] - w / 2, y = p[1] - h / 2;
-    ctx.fillStyle = dark ? 'rgba(20,32,25,.86)' : 'rgba(255,255,255,.92)';
+    ctx.fillStyle = dark ? 'rgba(22,22,22,.86)' : 'rgba(255,255,255,.94)';
     ctx.beginPath(); ctx.roundRect(x, y, w, h, 11); ctx.fill();
-    ctx.fillStyle = dark ? '#f3e6c6' : '#1f3d2b'; ctx.textBaseline = 'middle'; ctx.fillText(text, x + 7, y + h / 2 + .5);
+    ctx.fillStyle = dark ? '#ffffff' : '#c31c72'; ctx.textBaseline = 'middle'; ctx.fillText(text, x + 7, y + h / 2 + .5);
   }
 
   /* ---------- bradul ---------- */
@@ -479,7 +480,7 @@
     if (opt.cmp) {
       PRODUCT.sizes.forEach(o => {
         if (o === s) return; const y = t.Y - o.h * t.k;
-        ctx.setLineDash([6, 5]); ctx.strokeStyle = 'rgba(226,200,143,.95)'; ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 5]); ctx.strokeStyle = 'rgba(240,140,190,.95)'; ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.moveTo(t.X - o.d * .45 * t.k, y); ctx.lineTo(t.X + o.d * .45 * t.k, y); ctx.stroke(); ctx.setLineDash([]);
         tag([t.X - o.d * .45 * t.k - 4, y], o.h + ' cm', 'right');
       });
@@ -496,7 +497,7 @@
   }
   function drawDims(t, s) {
     const k = t.k, top = t.Y - s.h * k, x = t.X + (s.d / 2 + 18) * k;
-    ctx.strokeStyle = '#e2c88f'; ctx.lineWidth = 2; ctx.setLineDash([]);
+    ctx.strokeStyle = '#e0479a'; ctx.lineWidth = 2; ctx.setLineDash([]);
     ctx.beginPath(); ctx.moveTo(x, t.Y); ctx.lineTo(x, top);
     ctx.moveTo(x - 7, t.Y); ctx.lineTo(x + 7, t.Y); ctx.moveTo(x - 7, top); ctx.lineTo(x + 7, top); ctx.stroke();
     tag([x + 6, (t.Y + top) / 2], s.h + ' cm', 'left');
@@ -542,7 +543,7 @@
   }
   function drawPhotoRoom() {
     if (!cam) {
-      ctx.fillStyle = '#a9b3ab'; ctx.font = '15px system-ui,sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#b5b5b5'; ctx.font = '16px Oswald,"Arial Narrow",system-ui,sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(isTouch ? 'Atinge aici ca să faci o poză a camerei' : 'Click aici ca să încarci o poză a camerei', W / 2, H / 2); ctx.textAlign = 'start';
       return;
     }
@@ -555,7 +556,7 @@
     if (tool !== 'mask' || exporting) drawTree('over');
     if (exporting) return;
     if (tool === 'move') {
-      ctx.setLineDash([8, 6]); ctx.strokeStyle = '#e2c88f'; ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]); ctx.strokeStyle = '#e0479a'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(cam.x, cam.hy); ctx.lineTo(cam.x + cam.w, cam.hy); ctx.stroke(); ctx.setLineDash([]);
       tag([cam.x + 10, cam.hy], 'nivel telefon · ' + photo.hc + ' cm' + (photo.ref ? ' (din calibrare)' : ' (trage)'), 'left');
     }
@@ -792,10 +793,10 @@
     out.width = cv.width; out.height = cv.height + bar;
     const o = out.getContext('2d');
     o.drawImage(cv, 0, 0);
-    o.fillStyle = '#1f3d2b'; o.fillRect(0, cv.height, out.width, bar);
-    o.font = `600 ${Math.round(15 * DPR)}px system-ui,sans-serif`; o.textBaseline = 'middle';
-    o.fillStyle = '#f3e6c6'; o.fillText(PRODUCT.family + ' · ' + s.h + ' cm · Ø ' + s.d + ' cm', 14 * DPR, cv.height + bar / 2);
-    o.textAlign = 'right'; o.fillStyle = '#e2c88f'; o.fillText(CFG.brand || location.hostname, out.width - 14 * DPR, cv.height + bar / 2);
+    o.fillStyle = '#c31c72'; o.fillRect(0, cv.height, out.width, bar);
+    o.font = `500 ${Math.round(16 * DPR)}px Oswald,"Arial Narrow",system-ui,sans-serif`; o.textBaseline = 'middle';
+    o.fillStyle = '#ffffff'; o.fillText(PRODUCT.family + ' · ' + s.h + ' cm · Ø ' + s.d + ' cm', 14 * DPR, cv.height + bar / 2);
+    o.textAlign = 'right'; o.fillStyle = '#ffffff'; o.fillText(CFG.brand || location.hostname, out.width - 14 * DPR, cv.height + bar / 2);
     exporting = false; draw();
     track('shot');
     const name = 'brad-' + s.h + 'cm-' + room.id + '.png';

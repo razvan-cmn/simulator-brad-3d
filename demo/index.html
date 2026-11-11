@@ -4,13 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Demo simulator brad</title>
-<link rel="stylesheet" href="../sersimo-simulator-brad/assets/simulator.css?v=1.2.0h">
+<!-- doar în demo: pe sersimo.ro fontul vine local, din Elementor -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../sersimo-simulator-brad/assets/simulator.css?v=1.2.3b">
 <style>
-  body{margin:0;background:#faf7f1;font:15px/1.45 system-ui,sans-serif;color:#1d2320}
+  body{margin:0;background:#fff;font:15px/1.45 Roboto,system-ui,sans-serif;color:#1d2320}
+  h1{font-family:Oswald,sans-serif;font-weight:500}
   .page{max-width:1000px;margin:0 auto;padding:24px 16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px}
   .page img{width:100%;max-height:70vh;object-fit:cover;border-radius:14px;display:block}
   h1{font-size:clamp(20px,5vw,28px);line-height:1.25;margin:0 0 8px}
-  .cart{display:block;width:100%;padding:13px;border:0;border-radius:10px;background:#1f3d2b;color:#fff;font-weight:600;font-size:16px}
+  .cart{display:block;width:100%;padding:13px;border:0;border-radius:10px;background:#c31c72;color:#fff;font-weight:600;font-size:16px}
   .log{font:12px monospace;background:#fff;border:1px solid #e6e0d4;border-radius:8px;padding:8px;margin-top:16px;max-height:180px;overflow:auto;white-space:pre-wrap}
   @media (max-width:760px){.page{grid-template-columns:minmax(0,1fr);gap:16px;padding:12px}.page img{max-height:45vh}}
   .log{display:none} body.debug .log{display:block}
@@ -22,7 +25,7 @@
   <div><img src="../prototip/assets/orig.jpg" alt=""></div>
   <div>
     <h1>Brad artificial Christmas Deluxe by Sersimo Frasin de Munte 2D 220cm</h1>
-    <p style="font-size:24px;font-weight:700;color:#1f3d2b">449 lei</p>
+    <p style="font-size:24px;font-weight:700;color:#c31c72">449 lei</p>
     <form onsubmit="return false"><button class="cart">Adaugă în coș</button></form>
     <button type="button" class="ssb-open-btn">🎄 Vezi bradul în camera ta</button>
     <div class="log" id="log">dataLayer:</div>
@@ -45,6 +48,6 @@
   window.dataLayer = []; const push = dataLayer.push.bind(dataLayer);
   dataLayer.push = o => { document.getElementById('log').textContent += '\n' + JSON.stringify(o); return push(o); };
 </script>
-<script src="../sersimo-simulator-brad/assets/simulator.js?v=1.2.0h"></script>
+<script src="../sersimo-simulator-brad/assets/simulator.js?v=1.2.3b"></script>
 </body>
 </html>

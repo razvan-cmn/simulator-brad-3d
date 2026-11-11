@@ -34,11 +34,24 @@ class SSB_Frontend {
 		}
 		self::$printed = true;
 
-		wp_enqueue_style( 'ssb-simulator', SSB_URL . 'assets/simulator.css', array(), SSB_VERSION );
+		wp_enqueue_style( 'ssb-simulator', SSB_URL . 'assets/simulator.css', self::font_deps(), SSB_VERSION );
 		wp_enqueue_script( 'ssb-simulator', SSB_URL . 'assets/simulator.js', array(), SSB_VERSION, true );
 		wp_add_inline_script( 'ssb-simulator', 'window.SSB_CONFIG=' . wp_json_encode( $config ) . ';', 'before' );
 
 		$label = '' !== $text ? $text : SSB_Settings::get( 'button_text' );
 		return '<button type="button" class="ssb-open-btn">' . esc_html( $label ) . '</button>';
+	}
+
+	/**
+	 * Fontul Oswald: îl folosim pe cel găzduit local de Elementor (fără conexiune la Google → fără problemă GDPR).
+	 * Dacă tema îl încarcă deja, fișierul e același și browserul nu îl descarcă de două ori.
+	 */
+	private static function font_deps() {
+		$up = wp_upload_dir( null, false );
+		if ( empty( $up['basedir'] ) || ! file_exists( $up['basedir'] . '/elementor/google-fonts/css/oswald.css' ) ) {
+			return array();
+		}
+		wp_register_style( 'ssb-oswald', $up['baseurl'] . '/elementor/google-fonts/css/oswald.css', array(), null );
+		return array( 'ssb-oswald' );
 	}
 }
