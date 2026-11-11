@@ -376,7 +376,7 @@ def _f(v):
     return ('%.5f' % v).rstrip('0').rstrip('.') if v != int(v) else str(int(v))
 
 
-def usdz(leaves, wood, tex_png, bins=6, tex_h=1024):
+def usdz(leaves, wood, tex_png, bins=6, tex_h=1024, mode='emissive'):
     """Fișier .usdz pentru iPhone (AR Quick Look), cu aspectul variantei Android.
 
     Pe Android bradul e „unlit”: culoarea = textura × umbrirea pe vârfuri (închis spre trunchi, deschis spre vârf).
@@ -453,10 +453,12 @@ def usdz(leaves, wood, tex_png, bins=6, tex_h=1024):
                 '            token outputs:surface.connect = </Brad/Materiale/%s/Suprafata.outputs:surface>' % name,
                 '            def Shader "Suprafata"', '            {',
                 '                uniform token info:id = "UsdPreviewSurface"',
-                '                color3f inputs:diffuseColor = (0, 0, 0)',  # fără lumina Apple: totul vine din emisiv
                 '                float inputs:roughness = 1', '                float inputs:metallic = 0']
+        if mode == 'emissive':
+            out += ['                color3f inputs:diffuseColor = (0, 0, 0)']  # fără lumina Apple: totul vine din emisiv
+        chan = 'emissiveColor' if mode == 'emissive' else 'diffuseColor'
         if kind == 'tex':
-            out += ['                color3f inputs:emissiveColor.connect = </Brad/Materiale/%s/Textura.outputs:rgb>' % name,
+            out += ['                color3f inputs:%s.connect = </Brad/Materiale/%s/Textura.outputs:rgb>' % (chan, name),
                     '                float inputs:opacity.connect = </Brad/Materiale/%s/Textura.outputs:a>' % name,
                     '                float inputs:opacityThreshold = 0.5',
                     '                token outputs:surface', '            }',
@@ -468,7 +470,7 @@ def usdz(leaves, wood, tex_png, bins=6, tex_h=1024):
                     '                token inputs:wrapS = "clamp"', '                token inputs:wrapT = "clamp"',
                     '                float3 outputs:rgb', '                float outputs:a', '            }']
         else:
-            out += ['                color3f inputs:emissiveColor = (%s, %s, %s)' % tuple(map(_f, val)),
+            out += ['                color3f inputs:%s = (%s, %s, %s)' % ((chan,) + tuple(map(_f, val))),
                     '                token outputs:surface', '            }']
         out += ['        }']
     out += ['    }', '}', '']
@@ -503,6 +505,7 @@ if __name__ == '__main__':
     a.add_argument('--tex-out', help='salvează și textura de ramură (PNG), ca s-o vezi')
     a.add_argument('-o', '--out', required=True)
     a.add_argument('--usdz', help='scrie și varianta pentru iPhone (AR Quick Look)')
+    a.add_argument('--usdz-mode', choices=['emissive', 'lit'], default='lit', help='iPhone: emisiv (fără lumina Apple) sau luminat normal')
     o = a.parse_args()
 
     greens = palette_from(o.palette) if o.palette else [(64, 82, 46), (78, 96, 54), (56, 70, 40), (90, 104, 62)]
@@ -519,7 +522,7 @@ if __name__ == '__main__':
     data = glb(leaves, wood, buf.getvalue())
     if o.usdz:
         with open(o.usdz, 'wb') as f:
-            f.write(usdz(leaves, wood, buf.getvalue()))
+            f.write(usdz(leaves, wood, buf.getvalue(), mode=o.usdz_mode))
         print(f'{o.usdz}: varianta iPhone')
     with open(o.out, 'wb') as f:
         f.write(data)

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Test AR iPhone</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&display=swap">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#f4f1f2;font:16px/1.45 Oswald,"Arial Narrow",system-ui,sans-serif;color:#1d1d1d}
+  header{background:#161616;color:#fff;padding:12px 16px;font-size:19px;font-weight:500}
+  main{max-width:560px;margin:0 auto;padding:14px 16px 30px}
+  .v{display:flex;gap:14px;align-items:center;background:#fff;border:1px solid #e6dfe2;border-radius:14px;padding:12px;margin-top:12px;text-decoration:none;color:inherit}
+  .v img{width:84px;height:110px;object-fit:cover;border-radius:10px;background:#000;flex:none}
+  .v b{display:block;font-size:20px;font-weight:500;color:#c31c72}
+  .v span{display:block;color:#555;font-size:14.5px}
+  .info{margin-top:16px;padding:10px 12px;background:#fff7fb;border:1px solid #f1c6dc;border-radius:12px;font-size:14px;color:#6a2a4a}
+  p{color:#555;margin:10px 0 0}
+</style>
+</head>
+<body>
+<header>Test AR pe iPhone · 3 variante</header>
+<main>
+  <p>Apasă pe fiecare variantă. Se deschide aplicația Apple: alege sus <b>AR</b>, îndreaptă telefonul spre podea și uită-te la brad. Apoi închide (✕) și încearcă următoarea. Spune-mi care arată cel mai bine (A, B sau C).</p>
+
+  <a class="v" rel="ar" href="a-emisiv.usdz#allowsContentScaling=1">
+    <img src="brad.jpg" alt="Varianta A">
+    <div><b>A · culori fixe</b><span>Culorile exact ca pe Android, fără lumina Apple (varianta de acum).</span></div>
+  </a>
+  <a class="v" rel="ar" href="b-luminat.usdz#allowsContentScaling=1">
+    <img src="brad.jpg" alt="Varianta B">
+    <div><b>B · luminat normal</b><span>Apple pune lumina camerei pe brad (umbre, mai natural în încăpere).</span></div>
+  </a>
+  <a class="v" rel="ar" href="c-usor.usdz#allowsContentScaling=1">
+    <img src="brad.jpg" alt="Varianta C">
+    <div><b>C · luminat, mai ușor</b><span>Ca B, dar cu mai puține crengi suprapuse (se încarcă și se mișcă mai ușor).</span></div>
+  </a>
+
+  <div class="info" id="info"></div>
+</main>
+<script>
+  const m = navigator.userAgent.match(/OS (\d+)_(\d+)/);
+  document.getElementById('info').textContent = 'Telefonul tău: ' + (m ? 'iOS ' + m[1] + '.' + m[2] : navigator.userAgent.slice(0, 80)) + ' — spune-mi și versiunea asta împreună cu varianta aleasă.';
+</script>
+</body>
+</html>
