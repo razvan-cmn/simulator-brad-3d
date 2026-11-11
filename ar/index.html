@@ -103,8 +103,52 @@ if (xrOK) {
 }
 
 /* ================= AR propriu cu WebXR ================= */
-let renderer, scene, camera, tree, reticle, shadow, session, refSpace, hitSrc, touchSrc;
+let renderer, scene, camera, tree, reticle, shadow, session, refSpace, hitSrc, touchSrc, occlusionOK = false;
 let placed = false, locked = false, dragging = false, scale = 1, rotY = 0;
+
+/* Ocluzie (Android, ARCore Depth): părțile bradului aflate în spatele unui obiect real
+   (om, mobilă) nu se desenează. Telefonul dă o hartă de adâncime; comparăm cu distanța bradului. */
+const occ = {
+  uOccDepth: { value: null }, uOccUv: { value: new THREE.Matrix4() }, uOccRaw: { value: .001 },
+  uOccVp: { value: new THREE.Vector2(1, 1) }, uOccOn: { value: 0 },
+};
+let depthTex = null;
+function addOcclusion(mat) {
+  mat.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, occ);
+    sh.vertexShader = 'varying float vOccZ;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n  vOccZ = -mvPosition.z;');
+    sh.fragmentShader = 'varying float vOccZ;\nuniform sampler2D uOccDepth; uniform mat4 uOccUv; uniform float uOccRaw; uniform vec2 uOccVp; uniform float uOccOn;\n'
+      + sh.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+  if (uOccOn > 0.5) {
+    vec2 nv = gl_FragCoord.xy / uOccVp; nv.y = 1.0 - nv.y;
+    vec2 duv = (uOccUv * vec4(nv, 0.0, 1.0)).xy;
+    vec2 la = texture2D(uOccDepth, duv).rg;
+    float real = (la.x * 255.0 + la.y * 65280.0) * uOccRaw;
+    if (real > 0.0 && real < vOccZ - 0.05) discard;
+  }`);
+  };
+  mat.customProgramCacheKey = () => 'occ';
+  mat.needsUpdate = true;
+}
+function updateDepth(xrFrame) {
+  if (session.depthUsage !== 'cpu-optimized') return;
+  const pose = xrFrame.getViewerPose(refSpace); if (!pose) return;
+  let d = null;
+  try { d = xrFrame.getDepthInformation(pose.views[0]); } catch (e) { return; }
+  if (!d) { occ.uOccOn.value = 0; return; }
+  const bytes = new Uint8Array(d.data);
+  if (!depthTex || depthTex.image.width !== d.width || depthTex.image.height !== d.height) {
+    depthTex = new THREE.DataTexture(new Uint8Array(bytes.length), d.width, d.height, THREE.RGFormat); // RG8: octetul mic în R, cel mare în G (LuminanceAlpha nu merge în WebGL2)
+    depthTex.magFilter = depthTex.minFilter = THREE.NearestFilter;
+    occ.uOccDepth.value = depthTex;
+  }
+  depthTex.image.data.set(bytes); depthTex.needsUpdate = true;
+  occ.uOccUv.value.fromArray(d.normDepthBufferFromNormView.matrix);
+  occ.uOccRaw.value = d.rawValueToMeters;
+  const bl = session.renderState.baseLayer;
+  occ.uOccVp.value.set(bl.framebufferWidth, bl.framebufferHeight);
+  occ.uOccOn.value = 1;
+}
 
 function msg(t) { $('xrMsg').textContent = t; $('xrMsg').style.display = t ? '' : 'none'; }
 function ui() {
@@ -147,9 +191,11 @@ async function startXR() {
     shadow = shadowMesh(); tree.add(shadow);
     const gltf = await new GLTFLoader().loadAsync(MODEL);
     tree.add(gltf.scene);
+    tree.traverse(o => { if (o.isMesh) addOcclusion(o.material); });
   }
   session = await navigator.xr.requestSession('immersive-ar', {
-    requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay'], domOverlay: { root: $('xr') },
+    requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay', 'depth-sensing'], domOverlay: { root: $('xr') },
+    depthSensing: { usagePreference: ['cpu-optimized'], dataFormatPreference: ['luminance-alpha'] },
   });
   $('xr').classList.add('on');
   renderer.xr.setReferenceSpaceType('local');
@@ -158,7 +204,8 @@ async function startXR() {
   const viewer = await session.requestReferenceSpace('viewer');
   hitSrc = await session.requestHitTestSource({ space: viewer });
   try { touchSrc = await session.requestHitTestSourceForTransientInput({ profile: 'generic-touchscreen' }); } catch (e) { touchSrc = null; }
-  placed = false; locked = false; dragging = false; scale = 1; rotY = 0; tree.visible = false;
+  placed = false; locked = false; dragging = false; scale = 1; rotY = 0; tree.visible = false; occ.uOccOn.value = 0;
+  occlusionOK = session.depthUsage === 'cpu-optimized';
   msg('Îndreaptă telefonul spre podea și mișcă-l puțin…'); ui();
 
   session.addEventListener('selectstart', () => { if (placed && !locked) dragging = true; });
@@ -175,8 +222,8 @@ function place() {
   if (!reticle.visible) return;
   tree.position.setFromMatrixPosition(reticle.matrix);
   tree.visible = true; placed = true; reticle.visible = false;
-  msg('Trage cu degetul ca să muți bradul');
-  setTimeout(() => { if (placed && !dragging) msg(''); }, 3500);
+  msg(occlusionOK ? 'Trage cu degetul ca să muți bradul' : 'Trage cu degetul ca să muți bradul · telefonul nu suportă ascunderea în spatele oamenilor');
+  setTimeout(() => { if (placed && !dragging) msg(''); }, 4500);
   ui();
 }
 
@@ -200,6 +247,7 @@ function frame(t, xrFrame) {
       }
     }
   }
+  if (placed) updateDepth(xrFrame);
   renderer.render(scene, camera);
 }
 
