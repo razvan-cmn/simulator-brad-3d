@@ -6,6 +6,12 @@
 <title>Test AR brad</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&display=swap">
 <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
 <style>
   :root{--g:#c31c72;--g2:#a3155f}
   *{box-sizing:border-box}
@@ -14,39 +20,204 @@
   header small{color:#bbb;font-weight:400;margin-left:6px}
   model-viewer{width:100%;height:min(70vh,620px);background:linear-gradient(#eeeae6,#d9d2c8);--poster-color:transparent}
   .bar{max-width:720px;margin:0 auto;padding:14px 16px}
-  .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:#e7e1e3;padding:4px;border-radius:12px}
-  .seg button{border:0;border-radius:9px;padding:10px;font:500 15px Oswald,sans-serif;background:transparent;color:#555;cursor:pointer}
-  .seg button[aria-pressed=true]{background:#fff;color:var(--g);box-shadow:0 1px 3px rgba(0,0,0,.12)}
   .ar-btn{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);border:0;border-radius:999px;padding:14px 22px;background:var(--g);color:#fff;font:500 17px Oswald,sans-serif;box-shadow:0 6px 16px rgba(195,28,114,.35);cursor:pointer;white-space:nowrap}
   .no-ar{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:rgba(22,22,22,.85);color:#fff;padding:9px 14px;border-radius:999px;font-size:13px;white-space:nowrap}
   p{color:#555;margin:12px 0 0}
   p b{color:#1d1d1d}
+
+  /* ---- AR propriu (Android / WebXR): interfața peste camera live ---- */
+  #xr{position:fixed;inset:0;display:none;font-family:Oswald,"Arial Narrow",sans-serif;color:#fff;pointer-events:none}
+  #xr.on{display:block}
+  #xr .ui{pointer-events:auto}
+  #xr .top{position:absolute;left:0;right:0;top:0;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;display:flex;gap:8px;align-items:center;justify-content:space-between;background:linear-gradient(rgba(0,0,0,.55),transparent)}
+  #xr .msg{position:absolute;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translateX(-50%);background:rgba(22,22,22,.82);padding:9px 16px;border-radius:999px;font-size:15px;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+  #xr .size{font-size:17px;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+  #xr .size small{font-weight:400;opacity:.85;margin-left:4px}
+  #xr .bottom{position:absolute;left:0;right:0;bottom:0;padding:12px 12px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;align-items:center;background:linear-gradient(transparent,rgba(0,0,0,.55))}
+  #xr .row{display:flex;gap:10px;align-items:center;justify-content:center}
+  #xr button{border:0;border-radius:999px;font:500 16px Oswald,sans-serif;color:#fff;background:rgba(22,22,22,.78);height:52px;min-width:52px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:6px;-webkit-tap-highlight-color:transparent}
+  #xr button.round{width:56px;height:56px;padding:0;font-size:28px;font-weight:400}
+  #xr button.main{background:var(--g)}
+  #xr button.on{background:#fff;color:var(--g)}
+  #xr button:disabled{opacity:.4}
+  #xr .exit{height:42px;min-width:0;padding:0 14px;font-size:14px}
 </style>
 </head>
 <body>
 <header>Frasin de Munte 2D <small>220 cm · Ø 135 cm · test AR</small></header>
 <model-viewer id="mv" src="frasin-220-3d.glb" alt="Brad Frasin de Munte 2D, 220 cm"
-  ar ar-modes="webxr scene-viewer quick-look" ar-placement="floor" ar-scale="fixed"
+  ar ar-modes="quick-look scene-viewer" ar-placement="floor" ar-scale="auto"
   camera-controls touch-action="pan-y" camera-target="0m 1.1m 0m" camera-orbit="0deg 85deg 6m" field-of-view="32deg" min-camera-orbit="auto 40deg auto" max-camera-orbit="auto 95deg auto"
   shadow-intensity="0.6" shadow-softness="0.9" exposure="1" environment-image="neutral">
-  <button slot="ar-button" class="ar-btn">🎄 Vezi bradul în camera ta (AR)</button>
+  <button slot="ar-button" class="ar-btn" id="arBtn">🎄 Vezi bradul în camera ta (AR)</button>
   <div class="no-ar" id="noAr" hidden>Pe acest dispozitiv nu merge AR · deschide pagina pe telefon</div>
 </model-viewer>
 <div class="bar">
-  <div class="seg">
-    <button type="button" data-src="frasin-220-3d.glb" aria-pressed="true">Brad 3D</button>
-    <button type="button" data-src="frasin-220-p6.glb" aria-pressed="false">Panouri din poză</button>
-  </div>
-  <p><b>Rotește bradul cu degetul</b> ca să vezi cum arată din lateral. Pe telefon, butonul roz deschide camera: îndreaptă telefonul spre podea, așteaptă să fie recunoscută, apoi bradul apare <b>la mărimea reală</b> și rămâne pe loc când te miști.</p>
-  <p>Scara e fixă (nu se poate mări cu degetele), ca bradul să rămână 220 cm.</p>
+  <p><b>Rotește bradul cu degetul</b> ca să vezi cum arată din toate părțile. Pe telefon, butonul roz deschide camera.</p>
+  <p id="helpAndroid" hidden><b>În AR:</b> îndreaptă telefonul spre podea și atinge ecranul ca să pui bradul. Apoi <b>trage cu degetul oriunde pe ecran</b> ca să-l muți, folosește <b>+ / −</b> ca să-l mărești sau micșorezi, <b>100%</b> pentru mărimea reală și <b>🔓 Blochează</b> ca să rămână fix pe loc.</p>
+  <p id="helpIos" hidden><b>În AR (iPhone):</b> bradul apare pe podea la mărimea reală. <b>Trage-l cu un deget</b> ca să-l muți, <b>rotește-l cu două degete</b>, iar cu <b>două degete depărtate / apropiate</b> îl mărești sau micșorezi (sus apare procentul; 100% = mărimea reală).</p>
 </div>
-<script>
-  const mv = document.getElementById('mv');
-  document.querySelectorAll('[data-src]').forEach(b => b.onclick = () => {
-    mv.src = b.dataset.src;
-    document.querySelectorAll('[data-src]').forEach(x => x.setAttribute('aria-pressed', x === b));
+
+<!-- interfața AR-ului propriu (Android), afișată peste camera live („dom-overlay”) -->
+<div id="xr">
+  <div class="top ui">
+    <div class="size" id="xrSize">220 cm <small>· 100%</small></div>
+    <button class="exit" id="xrExit">✕ Ieșire</button>
+  </div>
+  <div class="msg" id="xrMsg">Îndreaptă telefonul spre podea…</div>
+  <div class="bottom ui">
+    <div class="row">
+      <button class="round" id="xrRotL" aria-label="Rotește spre stânga">⟲</button>
+      <button class="round" id="xrMinus" aria-label="Micșorează">−</button>
+      <button id="xrReal">100%</button>
+      <button class="round" id="xrPlus" aria-label="Mărește">+</button>
+      <button class="round" id="xrRotR" aria-label="Rotește spre dreapta">⟳</button>
+    </div>
+    <div class="row">
+      <button class="main" id="xrPlace">Pune bradul aici</button>
+      <button id="xrLock">🔓 Blochează</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const MODEL = 'frasin-220-3d.glb', H_CM = 220;
+const mv = document.getElementById('mv');
+const $ = id => document.getElementById(id);
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+let xrOK = false;
+try { xrOK = !!(navigator.xr && await navigator.xr.isSessionSupported('immersive-ar')); } catch (e) {}
+
+if (xrOK) {
+  // Android cu ARCore: AR-ul nostru (+ / −, 100%, rotire, blocare, mutare cu degetul oriunde pe ecran)
+  $('helpAndroid').hidden = false;
+  $('arBtn').addEventListener('click', e => { e.preventDefault(); e.stopImmediatePropagation(); startXR().catch(err => alert('AR nu a pornit: ' + err.message)); }, true);
+} else {
+  if (isIOS) $('helpIos').hidden = false;
+  // iPhone → AR Quick Look (Apple); Android fără WebXR → Scene Viewer (Google). Ambele au mutare + mărire native.
+  mv.addEventListener('load', () => { if (!mv.canActivateAR) $('noAr').hidden = false; });
+}
+
+/* ================= AR propriu cu WebXR ================= */
+let renderer, scene, camera, tree, reticle, shadow, session, refSpace, hitSrc, touchSrc;
+let placed = false, locked = false, dragging = false, scale = 1, rotY = 0;
+
+function msg(t) { $('xrMsg').textContent = t; $('xrMsg').style.display = t ? '' : 'none'; }
+function ui() {
+  $('xrSize').innerHTML = Math.round(H_CM * scale) + ' cm <small>· ' + Math.round(scale * 100) + '%</small>';
+  $('xrReal').classList.toggle('on', Math.abs(scale - 1) < .001);
+  $('xrPlace').style.display = placed ? 'none' : '';
+  $('xrLock').style.display = placed ? '' : 'none';
+  $('xrLock').textContent = locked ? '🔒 Blocat' : '🔓 Blochează';
+  $('xrLock').classList.toggle('on', locked);
+  ['xrMinus', 'xrPlus', 'xrReal', 'xrRotL', 'xrRotR'].forEach(id => $(id).disabled = !placed || locked);
+  if (tree) { tree.scale.setScalar(scale); tree.rotation.y = rotY; }
+}
+
+function shadowMesh() {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(.6, 'rgba(0,0,0,.25)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.6), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.position.y = .002;
+  return m;
+}
+
+async function startXR() {
+  if (session) return;
+  if (!renderer) {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.xr.enabled = true;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.domElement.style.cssText = 'position:fixed;inset:0;pointer-events:none';
+    document.body.appendChild(renderer.domElement);
+    scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2));
+    camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, .01, 50);
+    reticle = new THREE.Mesh(new THREE.RingGeometry(.12, .16, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xc31c72 }));
+    reticle.matrixAutoUpdate = false; reticle.visible = false; scene.add(reticle);
+    tree = new THREE.Group(); tree.visible = false; scene.add(tree);
+    shadow = shadowMesh(); tree.add(shadow);
+    const gltf = await new GLTFLoader().loadAsync(MODEL);
+    tree.add(gltf.scene);
+  }
+  session = await navigator.xr.requestSession('immersive-ar', {
+    requiredFeatures: ['hit-test'], optionalFeatures: ['dom-overlay'], domOverlay: { root: $('xr') },
   });
-  mv.addEventListener('load', () => { if (!mv.canActivateAR) document.getElementById('noAr').hidden = false; });
+  $('xr').classList.add('on');
+  renderer.xr.setReferenceSpaceType('local');
+  await renderer.xr.setSession(session);
+  refSpace = await session.requestReferenceSpace('local');
+  const viewer = await session.requestReferenceSpace('viewer');
+  hitSrc = await session.requestHitTestSource({ space: viewer });
+  try { touchSrc = await session.requestHitTestSourceForTransientInput({ profile: 'generic-touchscreen' }); } catch (e) { touchSrc = null; }
+  placed = false; locked = false; dragging = false; scale = 1; rotY = 0; tree.visible = false;
+  msg('Îndreaptă telefonul spre podea și mișcă-l puțin…'); ui();
+
+  session.addEventListener('selectstart', () => { if (placed && !locked) dragging = true; });
+  session.addEventListener('selectend', () => { dragging = false; });
+  session.addEventListener('select', () => { if (!placed) place(); });
+  session.addEventListener('end', () => {
+    session = null; hitSrc = touchSrc = null; $('xr').classList.remove('on');
+    renderer.setAnimationLoop(null);
+  });
+  renderer.setAnimationLoop(frame);
+}
+
+function place() {
+  if (!reticle.visible) return;
+  tree.position.setFromMatrixPosition(reticle.matrix);
+  tree.visible = true; placed = true; reticle.visible = false;
+  msg('Trage cu degetul ca să muți bradul');
+  setTimeout(() => { if (placed && !dragging) msg(''); }, 3500);
+  ui();
+}
+
+function frame(t, xrFrame) {
+  if (!xrFrame) return;
+  if (!placed && hitSrc) {
+    const hits = xrFrame.getHitTestResults(hitSrc);
+    if (hits.length) {
+      reticle.visible = true;
+      reticle.matrix.fromArray(hits[0].getPose(refSpace).transform.matrix);
+      msg('Atinge ecranul ca să pui bradul aici');
+    } else reticle.visible = false;
+  }
+  if (placed && dragging && !locked && touchSrc) {
+    // mutare: bradul merge unde e degetul pe podea (nu trebuie nimerit bradul)
+    for (const r of xrFrame.getHitTestResultsForTransientInput(touchSrc)) {
+      if (r.results.length) {
+        const p = r.results[0].getPose(refSpace).transform.position;
+        tree.position.set(p.x, p.y, p.z);
+        break;
+      }
+    }
+  }
+  renderer.render(scene, camera);
+}
+
+// atingerile pe butoane nu trebuie să mute bradul
+$('xr').querySelectorAll('.ui').forEach(el => el.addEventListener('beforexrselect', e => e.preventDefault()));
+const step = d => { scale = Math.min(2, Math.max(.5, Math.round((scale + d) * 10) / 10)); ui(); };
+$('xrMinus').onclick = () => step(-.1);
+$('xrPlus').onclick = () => step(.1);
+$('xrReal').onclick = () => { scale = 1; ui(); };
+$('xrRotL').onclick = () => { rotY += Math.PI / 12; ui(); };
+$('xrRotR').onclick = () => { rotY -= Math.PI / 12; ui(); };
+$('xrPlace').onclick = () => place();
+$('xrLock').onclick = () => {
+  locked = !locked; dragging = false;
+  msg(locked ? 'Bradul e blocat pe loc' : 'Trage cu degetul ca să muți bradul');
+  setTimeout(() => msg(''), 2000); ui();
+};
+$('xrExit').onclick = () => session && session.end();
 </script>
 </body>
 </html>
