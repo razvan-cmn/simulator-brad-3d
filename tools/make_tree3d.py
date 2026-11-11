@@ -376,15 +376,20 @@ def _f(v):
     return ('%.5f' % v).rstrip('0').rstrip('.') if v != int(v) else str(int(v))
 
 
-def usdz(leaves, wood, tex_png, bins=4):
-    """Fișier .usdz pentru iPhone. Quick Look nu știe de culori pe vârfuri, așa că umbrirea crengilor
-    e împărțită pe `bins` materiale (aceeași textură, mai închisă/mai deschisă), iar conurile,
-    bobițele și trunchiul primesc materiale cu culoare fixă."""
+def usdz(leaves, wood, tex_png, bins=6, tex_h=1024):
+    """Fișier .usdz pentru iPhone (AR Quick Look), cu aspectul variantei Android.
+
+    Pe Android bradul e „unlit”: culoarea = textura × umbrirea pe vârfuri (închis spre trunchi, deschis spre vârf).
+    Quick Look nu știe de culori pe vârfuri și adaugă propria lumină, așa că:
+      - umbrirea e „coaptă” în texturi: crengile sunt grupate după cât de luminos e capătul lor,
+        iar pentru fiecare grupă textura e înmulțită cu gradientul trunchi→vârf;
+      - materialele sunt emisive (diffuse negru): culoarea din textură se vede ca atare, fără lumina Apple."""
+    from PIL import ImageChops
     out = ['#usda 1.0', '(', '    defaultPrim = "Brad"', '    metersPerUnit = 1', '    upAxis = "Y"', ')', '',
            'def Xform "Brad"', '{',
            '    token preliminary:anchoring:type = "plane"',  # Quick Look: pune bradul pe podea
            '    token preliminary:planeAnchoring:alignment = "horizontal"', '']
-    mats = []
+    mats, files = [], []
 
     def mesh_block(name, quads, P, N, T, mat, double):
         idx, pts, nrm, st = [], [], [], []
@@ -405,21 +410,37 @@ def usdz(leaves, wood, tex_png, bins=4):
         b += ['        uniform token subdivisionScheme = "none"', '    }', '']
         return b
 
-    # crengi: grupate după luminozitatea medie (umbrirea din vertex colors)
+    base = Image.open(io.BytesIO(tex_png)).convert('RGBA')
+    if base.height > tex_h:
+        base = base.resize((base.width * tex_h // base.height, tex_h), Image.LANCZOS)
+    W = base.width
+    rgb, alpha = base.convert('RGB'), base.getchannel('A')
+
+    # crengi: grupate după luminozitatea capătului (u=1); baza (u=0) = media grupei
     lq = [tuple(range(i, i + 4)) for i in range(0, len(leaves.P), 4)]
     groups = {}
     for q in lq:
-        k = sum(leaves.C[v][0] for v in q) / 4
-        groups.setdefault(min(bins - 1, int(k * bins)), []).append(q)
-    for b, qs in sorted(groups.items()):
+        cin, cout = leaves.C[q[0]][0], leaves.C[q[1]][0]
+        groups.setdefault(min(bins - 1, int(cout * bins)), []).append((q, cin, cout))
+    for b, items in sorted(groups.items()):
+        cin = sum(i[1] for i in items) / len(items)
+        cout = sum(i[2] for i in items) / len(items)
+        grad = Image.new('L', (W, 1))
+        grad.putdata([int(255 * min(1, cin + (cout - cin) * x / (W - 1))) for x in range(W)])
+        grad = grad.resize(rgb.size).convert('RGB')
+        baked = ImageChops.multiply(rgb, grad)
+        baked.putalpha(alpha)
+        buf = io.BytesIO(); baked.save(buf, 'PNG', optimize=True)
+        fname = 'crengi%d.png' % b
+        files.append((fname, buf.getvalue()))
         name = 'Crengi%d' % b
-        out += mesh_block(name, qs, leaves.P, leaves.N, leaves.T, 'M' + name, True)
-        mats.append(('M' + name, 'tex', (b + .7) / bins))
-    # lemn, miez, conuri, bobițe: grupate după culoare
+        out += mesh_block(name, [i[0] for i in items], leaves.P, leaves.N, leaves.T, 'M' + name, True)
+        mats.append(('M' + name, 'tex', fname))
+    # lemn, miez, conuri, bobițe: culori fixe (deja „luminate” în vertex colors)
     wq = [tuple(range(i, i + 4)) for i in range(0, len(wood.P), 4)]
     groups = {}
     for q in wq:
-        c = tuple(round(sum(wood.C[v][i] for v in q) / 4 * 8) / 8 for i in range(3))
+        c = tuple(round(sum(wood.C[v][i] for v in q) / 4 * 12) / 12 for i in range(3))
         groups.setdefault(c, []).append(q)
     for i, (c, qs) in enumerate(sorted(groups.items())):
         name = 'Obiect%d' % i
@@ -432,22 +453,22 @@ def usdz(leaves, wood, tex_png, bins=4):
                 '            token outputs:surface.connect = </Brad/Materiale/%s/Suprafata.outputs:surface>' % name,
                 '            def Shader "Suprafata"', '            {',
                 '                uniform token info:id = "UsdPreviewSurface"',
+                '                color3f inputs:diffuseColor = (0, 0, 0)',  # fără lumina Apple: totul vine din emisiv
                 '                float inputs:roughness = 1', '                float inputs:metallic = 0']
         if kind == 'tex':
-            out += ['                color3f inputs:diffuseColor.connect = </Brad/Materiale/%s/Textura.outputs:rgb>' % name,
+            out += ['                color3f inputs:emissiveColor.connect = </Brad/Materiale/%s/Textura.outputs:rgb>' % name,
                     '                float inputs:opacity.connect = </Brad/Materiale/%s/Textura.outputs:a>' % name,
                     '                float inputs:opacityThreshold = 0.5',
                     '                token outputs:surface', '            }',
                     '            def Shader "St"', '            {', '                uniform token info:id = "UsdPrimvarReader_float2"',
                     '                string inputs:varname = "st"', '                float2 outputs:result', '            }',
                     '            def Shader "Textura"', '            {', '                uniform token info:id = "UsdUVTexture"',
-                    '                asset inputs:file = @crengi.png@',
+                    '                asset inputs:file = @%s@' % val,
                     '                float2 inputs:st.connect = </Brad/Materiale/%s/St.outputs:result>' % name,
-                    '                float4 inputs:scale = (%s, %s, %s, 1)' % ((_f(min(1.2, val * 1.25)),) * 3),
                     '                token inputs:wrapS = "clamp"', '                token inputs:wrapT = "clamp"',
                     '                float3 outputs:rgb', '                float outputs:a', '            }']
         else:
-            out += ['                color3f inputs:diffuseColor = (%s, %s, %s)' % tuple(map(_f, val)),
+            out += ['                color3f inputs:emissiveColor = (%s, %s, %s)' % tuple(map(_f, val)),
                     '                token outputs:surface', '            }']
         out += ['        }']
     out += ['    }', '}', '']
@@ -457,7 +478,7 @@ def usdz(leaves, wood, tex_png, bins=4):
     import zipfile
     bio = io.BytesIO()
     with zipfile.ZipFile(bio, 'w', zipfile.ZIP_STORED) as z:
-        for fname, data in (('brad.usda', usda), ('crengi.png', tex_png)):
+        for fname, data in [('brad.usda', usda)] + files:
             zi = zipfile.ZipInfo(fname, (2024, 1, 1, 0, 0, 0))
             zi.compress_type = zipfile.ZIP_STORED
             off = bio.tell() + 30 + len(fname)
