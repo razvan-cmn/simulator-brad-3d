@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Test AR brad</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&display=swap">
+<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+<style>
+  :root{--g:#c31c72;--g2:#a3155f}
+  *{box-sizing:border-box}
+  body{margin:0;background:#f4f1f2;font:15px/1.45 Oswald,"Arial Narrow",system-ui,sans-serif;color:#1d1d1d}
+  header{background:#161616;color:#fff;padding:12px 16px;font-size:18px;font-weight:500}
+  header small{color:#bbb;font-weight:400;margin-left:6px}
+  model-viewer{width:100%;height:min(70vh,620px);background:linear-gradient(#eeeae6,#d9d2c8);--poster-color:transparent}
+  .bar{max-width:720px;margin:0 auto;padding:14px 16px}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:#e7e1e3;padding:4px;border-radius:12px}
+  .seg button{border:0;border-radius:9px;padding:10px;font:500 15px Oswald,sans-serif;background:transparent;color:#555;cursor:pointer}
+  .seg button[aria-pressed=true]{background:#fff;color:var(--g);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .ar-btn{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);border:0;border-radius:999px;padding:14px 22px;background:var(--g);color:#fff;font:500 17px Oswald,sans-serif;box-shadow:0 6px 16px rgba(195,28,114,.35);cursor:pointer;white-space:nowrap}
+  .no-ar{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:rgba(22,22,22,.85);color:#fff;padding:9px 14px;border-radius:999px;font-size:13px;white-space:nowrap}
+  p{color:#555;margin:12px 0 0}
+  p b{color:#1d1d1d}
+</style>
+</head>
+<body>
+<header>Frasin de Munte 2D <small>220 cm · Ø 135 cm · test AR</small></header>
+<model-viewer id="mv" src="frasin-220-3d.glb" alt="Brad Frasin de Munte 2D, 220 cm"
+  ar ar-modes="webxr scene-viewer quick-look" ar-placement="floor" ar-scale="fixed"
+  camera-controls touch-action="pan-y" camera-target="0m 1.1m 0m" camera-orbit="0deg 85deg 6m" field-of-view="32deg" min-camera-orbit="auto 40deg auto" max-camera-orbit="auto 95deg auto"
+  shadow-intensity="0.6" shadow-softness="0.9" exposure="1" environment-image="neutral">
+  <button slot="ar-button" class="ar-btn">🎄 Vezi bradul în camera ta (AR)</button>
+  <div class="no-ar" id="noAr" hidden>Pe acest dispozitiv nu merge AR · deschide pagina pe telefon</div>
+</model-viewer>
+<div class="bar">
+  <div class="seg">
+    <button type="button" data-src="frasin-220-3d.glb" aria-pressed="true">Brad 3D</button>
+    <button type="button" data-src="frasin-220-p6.glb" aria-pressed="false">Panouri din poză</button>
+  </div>
+  <p><b>Rotește bradul cu degetul</b> ca să vezi cum arată din lateral. Pe telefon, butonul roz deschide camera: îndreaptă telefonul spre podea, așteaptă să fie recunoscută, apoi bradul apare <b>la mărimea reală</b> și rămâne pe loc când te miști.</p>
+  <p>Scara e fixă (nu se poate mări cu degetele), ca bradul să rămână 220 cm.</p>
+</div>
+<script>
+  const mv = document.getElementById('mv');
+  document.querySelectorAll('[data-src]').forEach(b => b.onclick = () => {
+    mv.src = b.dataset.src;
+    document.querySelectorAll('[data-src]').forEach(x => x.setAttribute('aria-pressed', x === b));
+  });
+  mv.addEventListener('load', () => { if (!mv.canActivateAR) document.getElementById('noAr').hidden = false; });
+</script>
+</body>
+</html>
