@@ -370,6 +370,103 @@ def glb(leaves, wood, tex_png):
             + struct.pack('<I4s', len(binbuf), b'BIN\0') + binbuf)
 
 
+# ---------------------------------------------------------------- USDZ (iPhone / AR Quick Look)
+
+def _f(v):
+    return ('%.5f' % v).rstrip('0').rstrip('.') if v != int(v) else str(int(v))
+
+
+def usdz(leaves, wood, tex_png, bins=4):
+    """Fișier .usdz pentru iPhone. Quick Look nu știe de culori pe vârfuri, așa că umbrirea crengilor
+    e împărțită pe `bins` materiale (aceeași textură, mai închisă/mai deschisă), iar conurile,
+    bobițele și trunchiul primesc materiale cu culoare fixă."""
+    out = ['#usda 1.0', '(', '    defaultPrim = "Brad"', '    metersPerUnit = 1', '    upAxis = "Y"', ')', '',
+           'def Xform "Brad"', '{',
+           '    token preliminary:anchoring:type = "plane"',  # Quick Look: pune bradul pe podea
+           '    token preliminary:planeAnchoring:alignment = "horizontal"', '']
+    mats = []
+
+    def mesh_block(name, quads, P, N, T, mat, double):
+        idx, pts, nrm, st = [], [], [], []
+        for q in quads:
+            for v in q:
+                idx.append(len(pts)); pts.append(P[v]); nrm.append(N[v])
+                if T:
+                    st.append((T[v][0], 1 - T[v][1]))
+        b = ['    def Mesh "%s" (' % name, '        prepend apiSchemas = ["MaterialBindingAPI"]', '    )', '    {',
+             '        uniform bool doubleSided = %d' % (1 if double else 0),
+             '        int[] faceVertexCounts = [%s]' % ', '.join(['4'] * len(quads)),
+             '        int[] faceVertexIndices = [%s]' % ', '.join(map(str, idx)),
+             '        rel material:binding = </Brad/Materiale/%s>' % mat,
+             '        normal3f[] normals = [%s] (interpolation = "vertex")' % ', '.join('(%s, %s, %s)' % tuple(map(_f, n)) for n in nrm),
+             '        point3f[] points = [%s]' % ', '.join('(%s, %s, %s)' % tuple(map(_f, p)) for p in pts)]
+        if T:
+            b.append('        texCoord2f[] primvars:st = [%s] (interpolation = "vertex")' % ', '.join('(%s, %s)' % tuple(map(_f, t)) for t in st))
+        b += ['        uniform token subdivisionScheme = "none"', '    }', '']
+        return b
+
+    # crengi: grupate după luminozitatea medie (umbrirea din vertex colors)
+    lq = [tuple(range(i, i + 4)) for i in range(0, len(leaves.P), 4)]
+    groups = {}
+    for q in lq:
+        k = sum(leaves.C[v][0] for v in q) / 4
+        groups.setdefault(min(bins - 1, int(k * bins)), []).append(q)
+    for b, qs in sorted(groups.items()):
+        name = 'Crengi%d' % b
+        out += mesh_block(name, qs, leaves.P, leaves.N, leaves.T, 'M' + name, True)
+        mats.append(('M' + name, 'tex', (b + .7) / bins))
+    # lemn, miez, conuri, bobițe: grupate după culoare
+    wq = [tuple(range(i, i + 4)) for i in range(0, len(wood.P), 4)]
+    groups = {}
+    for q in wq:
+        c = tuple(round(sum(wood.C[v][i] for v in q) / 4 * 8) / 8 for i in range(3))
+        groups.setdefault(c, []).append(q)
+    for i, (c, qs) in enumerate(sorted(groups.items())):
+        name = 'Obiect%d' % i
+        out += mesh_block(name, qs, wood.P, wood.N, None, 'M' + name, True)
+        mats.append(('M' + name, 'color', c))
+
+    out += ['    def Scope "Materiale"', '    {']
+    for name, kind, val in mats:
+        out += ['        def Material "%s"' % name, '        {',
+                '            token outputs:surface.connect = </Brad/Materiale/%s/Suprafata.outputs:surface>' % name,
+                '            def Shader "Suprafata"', '            {',
+                '                uniform token info:id = "UsdPreviewSurface"',
+                '                float inputs:roughness = 1', '                float inputs:metallic = 0']
+        if kind == 'tex':
+            out += ['                color3f inputs:diffuseColor.connect = </Brad/Materiale/%s/Textura.outputs:rgb>' % name,
+                    '                float inputs:opacity.connect = </Brad/Materiale/%s/Textura.outputs:a>' % name,
+                    '                float inputs:opacityThreshold = 0.5',
+                    '                token outputs:surface', '            }',
+                    '            def Shader "St"', '            {', '                uniform token info:id = "UsdPrimvarReader_float2"',
+                    '                string inputs:varname = "st"', '                float2 outputs:result', '            }',
+                    '            def Shader "Textura"', '            {', '                uniform token info:id = "UsdUVTexture"',
+                    '                asset inputs:file = @crengi.png@',
+                    '                float2 inputs:st.connect = </Brad/Materiale/%s/St.outputs:result>' % name,
+                    '                float4 inputs:scale = (%s, %s, %s, 1)' % ((_f(min(1.2, val * 1.25)),) * 3),
+                    '                token inputs:wrapS = "clamp"', '                token inputs:wrapT = "clamp"',
+                    '                float3 outputs:rgb', '                float outputs:a', '            }']
+        else:
+            out += ['                color3f inputs:diffuseColor = (%s, %s, %s)' % tuple(map(_f, val)),
+                    '                token outputs:surface', '            }']
+        out += ['        }']
+    out += ['    }', '}', '']
+    usda = '\n'.join(out).encode()
+
+    # USDZ = zip necomprimat, cu datele fiecărui fișier aliniate la 64 de octeți (cerință Apple)
+    import zipfile
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, 'w', zipfile.ZIP_STORED) as z:
+        for fname, data in (('brad.usda', usda), ('crengi.png', tex_png)):
+            zi = zipfile.ZipInfo(fname, (2024, 1, 1, 0, 0, 0))
+            zi.compress_type = zipfile.ZIP_STORED
+            off = bio.tell() + 30 + len(fname)
+            pad = (-(off + 4)) % 64
+            zi.extra = struct.pack('<HH', 0x1986, pad) + b'\0' * pad
+            z.writestr(zi, data)
+    return bio.getvalue()
+
+
 if __name__ == '__main__':
     a = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     a.add_argument('--h', type=float, required=True, help='înălțime, cm')
@@ -384,6 +481,7 @@ if __name__ == '__main__':
     a.add_argument('--berries3d', type=float, default=0.0, help='ciorchini de bobițe 3D (0–1, ex. 0.1)')
     a.add_argument('--tex-out', help='salvează și textura de ramură (PNG), ca s-o vezi')
     a.add_argument('-o', '--out', required=True)
+    a.add_argument('--usdz', help='scrie și varianta pentru iPhone (AR Quick Look)')
     o = a.parse_args()
 
     greens = palette_from(o.palette) if o.palette else [(64, 82, 46), (78, 96, 54), (56, 70, 40), (90, 104, 62)]
@@ -398,6 +496,10 @@ if __name__ == '__main__':
     buf = io.BytesIO(); tex.save(buf, 'PNG', optimize=True)
     leaves, wood = build_tree(o.h, o.d, o.seed, variants, o.density, aspect, o.cones, o.berries3d)
     data = glb(leaves, wood, buf.getvalue())
+    if o.usdz:
+        with open(o.usdz, 'wb') as f:
+            f.write(usdz(leaves, wood, buf.getvalue()))
+        print(f'{o.usdz}: varianta iPhone')
     with open(o.out, 'wb') as f:
         f.write(data)
     print(f'{o.out}: {len(data) / 1024:.0f} KB, {len(leaves.P) // 4} placi de crengi, {o.h:.0f}x{o.d:.0f} cm')
