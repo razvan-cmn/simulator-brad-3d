@@ -4,14 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Demo simulator brad</title>
-<link rel="stylesheet" href="../sersimo-simulator-brad/assets/simulator.css?v=1.2.0f">
+<link rel="stylesheet" href="../sersimo-simulator-brad/assets/simulator.css?v=1.2.0h">
 <style>
   body{margin:0;background:#faf7f1;font:15px/1.45 system-ui,sans-serif;color:#1d2320}
-  .page{max-width:1000px;margin:0 auto;padding:24px 16px;display:grid;grid-template-columns:1fr 1fr;gap:32px}
-  .page img{width:100%;border-radius:14px}
+  .page{max-width:1000px;margin:0 auto;padding:24px 16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px}
+  .page img{width:100%;max-height:70vh;object-fit:cover;border-radius:14px;display:block}
+  h1{font-size:clamp(20px,5vw,28px);line-height:1.25;margin:0 0 8px}
   .cart{display:block;width:100%;padding:13px;border:0;border-radius:10px;background:#1f3d2b;color:#fff;font-weight:600;font-size:16px}
   .log{font:12px monospace;background:#fff;border:1px solid #e6e0d4;border-radius:8px;padding:8px;margin-top:16px;max-height:180px;overflow:auto;white-space:pre-wrap}
-  @media (max-width:760px){.page{grid-template-columns:1fr}}
+  @media (max-width:760px){.page{grid-template-columns:minmax(0,1fr);gap:16px;padding:12px}.page img{max-height:45vh}}
+  .log{display:none} body.debug .log{display:block}
 </style>
 </head>
 <body>
@@ -38,10 +40,11 @@
     family: 'Frasin de Munte 2D', name: '', current: 1, brand: 'sersimo.ro', currency: 'RON', ajaxUrl: '',
     sizes: [mk(67574, 180, 115, 378), mk(67553, 220, 135, 449), mk(146361, 240, 150, 542, false)],
   };
-  // afișează evenimentele de tracking (în site merg în GA4 / GTM)
+  // jurnalul evenimentelor de tracking apare doar cu ?debug în link (în site merg în GA4 / GTM)
+  if (/[?&]debug/.test(location.search)) document.body.classList.add('debug');
   window.dataLayer = []; const push = dataLayer.push.bind(dataLayer);
   dataLayer.push = o => { document.getElementById('log').textContent += '\n' + JSON.stringify(o); return push(o); };
 </script>
-<script src="../sersimo-simulator-brad/assets/simulator.js?v=1.2.0f"></script>
+<script src="../sersimo-simulator-brad/assets/simulator.js?v=1.2.0h"></script>
 </body>
 </html>

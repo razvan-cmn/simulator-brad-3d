@@ -21,6 +21,7 @@
   const PRODUCT = { family: CFG.family, name: CFG.name, sizes: CFG.sizes };
   let sizeIdx = Math.max(0, Math.min(CFG.current | 0, PRODUCT.sizes.length - 1));
   const TOPPER = 10; // cm liberi recomandați deasupra vârfului
+  const isTouch = matchMedia('(pointer:coarse)').matches;
 
   /* ---------- tracking ---------- */
   function track(ev, extra) {
@@ -55,7 +56,7 @@
   <div class="ssb-body">
     <div class="ssb-stage" data-ssb="stage">
       <canvas class="ssb-cv"></canvas>
-      <div class="ssb-hint" data-ssb="hint">Trage bradul ca să-l muți · rotița / 2 degete pentru zoom</div>
+      <div class="ssb-hint" data-ssb="hint">${isTouch ? 'Trage bradul cu degetul · 2 degete pentru zoom' : 'Trage bradul ca să-l muți · rotița pentru zoom'}</div>
       <div class="ssb-tools">
         <button type="button" class="ssb-tool" data-ssb="zin" title="Zoom in">+</button>
         <button type="button" class="ssb-tool" data-ssb="zout" title="Zoom out">−</button>
@@ -136,7 +137,7 @@
       </div>
       <h3>Înălțime</h3>
       <div class="ssb-sizes" data-ssb="sizes"></div>
-      <h3>Dimensiuni reale</h3>
+      <h3 class="ssb-dims-h">Dimensiuni reale</h3>
       <div class="ssb-dims">
         <div class="ssb-dim"><small>Înălțime</small><b data-ssb="dH"></b></div>
         <div class="ssb-dim"><small>Diametru la bază</small><b data-ssb="dD"></b></div>
@@ -210,10 +211,10 @@
     return out;
   }
   const ROOMS = [
-    { id: 'living', name: 'Living modern', hc: 140, start: { x: window.innerWidth < 820 ? 55 : 135, z: 440 },
+    { id: 'living', name: 'Living', hc: 140, start: { x: window.innerWidth < 820 ? 55 : 135, z: 440 },
       blocks: [[-230, -30, 570, 650], [40, 220, 605, 650], [200, 240, 585, 625]] },
     { id: 'empty', name: 'Bloc / Casă', hc: 140, start: { x: 0, z: 420 }, blocks: [] },
-    { id: 'photo', name: 'Camera ta (poză)', photo: true },
+    { id: 'photo', name: '📷 Camera ta', photo: true },
   ];
   let room = ROOMS[0];
   const pos = { living: { ...ROOMS[0].start }, empty: null, photo: { u: .5, v: .85 } };
@@ -251,7 +252,8 @@
     } else {
       roomDims();
       if (room.id === 'empty' && !pos.empty) pos.empty = presetStart();
-      const f = Math.max(0.78 * W, 0.62 * H);
+      // pe ecran îngust (telefon) încadrăm mai strâns, ca bradul să nu pară mic
+      const f = W < H * 1.2 ? Math.max(0.78 * W, 0.86 * H) : Math.max(0.78 * W, 0.62 * H);
       cam = { cx: W / 2, hy: H * 0.40, f, hc: room.hc };
     }
   }
@@ -541,7 +543,7 @@
   function drawPhotoRoom() {
     if (!cam) {
       ctx.fillStyle = '#a9b3ab'; ctx.font = '15px system-ui,sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('Încarcă o poză a camerei din panou', W / 2, H / 2); ctx.textAlign = 'start';
+      ctx.fillText(isTouch ? 'Atinge aici ca să faci o poză a camerei' : 'Click aici ca să încarci o poză a camerei', W / 2, H / 2); ctx.textAlign = 'start';
       return;
     }
     ctx.drawImage(photo.img, cam.x, cam.y, cam.w, cam.h);
@@ -645,6 +647,7 @@
 
   cv.addEventListener('pointerdown', e => {
     try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    if (room.photo && !photo.img) { $(isTouch ? 'fileCam' : 'file').click(); return; } // fără poză: atingerea deschide camera / alegerea fișierului
     const p = local(e); pointers.set(e.pointerId, p); hideHint();
     if (pointers.size === 2) {
       if (drag && drag.type === 'paint') { photo.strokes.pop(); rebuildMask(); } // al doilea deget = zoom, nu pictură
@@ -810,7 +813,6 @@
   /* ---------- modul poză: încărcare + pași ---------- */
   const sessFlags = new Set();
   const onceSession = k => !sessFlags.has(k) && !!sessFlags.add(k);
-  const isTouch = matchMedia('(pointer:coarse)').matches;
   if (!isTouch) { $('snap').classList.add('ssb-hidden'); $('pick').textContent = 'Încarcă o poză a camerei'; }
   $('snap').onclick = () => $('fileCam').click();
   $('pick').onclick = () => $('file').click();

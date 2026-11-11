@@ -44,10 +44,11 @@ class SSB_Settings {
 		if ( 'yes' !== $s['utm_enabled'] ) {
 			return array();
 		}
-		return array(
+		// add_query_arg() nu codează valorile: le codăm noi (spații, & etc. ar strica linkul).
+		return array_map( 'rawurlencode', array(
 			'utm_source'   => $s['utm_source'],
 			'utm_medium'   => $s['utm_medium'],
 			'utm_campaign' => $s['utm_campaign'],
-		);
+		) );
 	}
 }

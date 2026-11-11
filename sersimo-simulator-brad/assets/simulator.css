@@ -75,8 +75,16 @@ html.ssb-lock,html.ssb-lock body{overflow:hidden!important}
   .ssb-body{flex-direction:column}
   .ssb-panel{width:auto;max-height:46%;border-left:0;border-top:1px solid #26302a;padding:12px 14px 14px}
   #ssb-sim h3{margin:10px 0 6px}
-  .ssb-rooms{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
-  #ssb-sim .ssb-rooms .ssb-chip{white-space:nowrap}
+  /* telefon: scena mai mare, panou compact, coș fix jos */
+  .ssb-stage{flex:1 1 52%}
+  .ssb-panel{max-height:48%;padding-bottom:0}
+  .ssb-rooms{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  #ssb-sim .ssb-rooms .ssb-chip{white-space:nowrap;padding:8px 4px;font-size:14px;text-align:center}
+  .ssb-dims-h,.ssb-dims{display:none}
+  .ssb-cta{bottom:0;padding:10px 0 calc(10px + env(safe-area-inset-bottom));margin-top:10px;box-shadow:0 -8px 12px -8px rgba(0,0,0,.12)}
+  .ssb-cta small{display:none}
+  #ssb-sim .ssb-btn-cart{padding:12px}
+  .ssb-toggle{font-size:14px;padding:8px 2px}
   #ssb-sim .ssb-tool{width:40px;height:40px}
   .ssb-hint{font-size:12px;white-space:normal;width:max-content;max-width:90%;text-align:center}
 }
