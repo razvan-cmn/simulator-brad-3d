@@ -376,7 +376,7 @@ def _f(v):
     return ('%.5f' % v).rstrip('0').rstrip('.') if v != int(v) else str(int(v))
 
 
-def usdz(leaves, wood, tex_png, bins=6, tex_h=1024, mode='emissive'):
+def usdz(leaves, wood, tex_png, bins=4, tex_h=2048, mode='lit', dilate=1, threshold=0.4):
     """Fișier .usdz pentru iPhone (AR Quick Look), cu aspectul variantei Android.
 
     Pe Android bradul e „unlit”: culoarea = textura × umbrirea pe vârfuri (închis spre trunchi, deschis spre vârf).
@@ -415,6 +415,10 @@ def usdz(leaves, wood, tex_png, bins=6, tex_h=1024, mode='emissive'):
         base = base.resize((base.width * tex_h // base.height, tex_h), Image.LANCZOS)
     W = base.width
     rgb, alpha = base.convert('RGB'), base.getchannel('A')
+    if dilate:
+        # îngroșăm puțin acele: la distanță, iPhone-ul micșorează textura și acele subțiri dispar (rămân „lame”)
+        from PIL import ImageFilter
+        alpha = alpha.filter(ImageFilter.MaxFilter(dilate * 2 + 1))
 
     # crengi: grupate după luminozitatea capătului (u=1); baza (u=0) = media grupei
     lq = [tuple(range(i, i + 4)) for i in range(0, len(leaves.P), 4)]
@@ -426,7 +430,8 @@ def usdz(leaves, wood, tex_png, bins=6, tex_h=1024, mode='emissive'):
         cin = sum(i[1] for i in items) / len(items)
         cout = sum(i[2] for i in items) / len(items)
         grad = Image.new('L', (W, 1))
-        grad.putdata([int(255 * min(1, cin + (cout - cin) * x / (W - 1))) for x in range(W)])
+        # umbrirea din model e în spațiu liniar, textura e sRGB → convertim multiplicatorul în sRGB
+        grad.putdata([int(255 * min(1, cin + (cout - cin) * x / (W - 1)) ** (1 / 2.2)) for x in range(W)])
         grad = grad.resize(rgb.size).convert('RGB')
         baked = ImageChops.multiply(rgb, grad)
         baked.putalpha(alpha)
@@ -440,11 +445,13 @@ def usdz(leaves, wood, tex_png, bins=6, tex_h=1024, mode='emissive'):
     wq = [tuple(range(i, i + 4)) for i in range(0, len(wood.P), 4)]
     groups = {}
     for q in wq:
-        c = tuple(round(sum(wood.C[v][i] for v in q) / 4 * 12) / 12 for i in range(3))
-        groups.setdefault(c, []).append(q)
-    for i, (c, qs) in enumerate(sorted(groups.items())):
+        avg = tuple(sum(wood.C[v][i] for v in q) / 4 for i in range(3))
+        key = tuple(round(x * 40) for x in avg)  # grupare fină; culoarea materialului = media exactă a grupei
+        groups.setdefault(key, []).append((q, avg))
+    for i, (key, items) in enumerate(sorted(groups.items())):
+        c = tuple(sum(it[1][k] for it in items) / len(items) for k in range(3))
         name = 'Obiect%d' % i
-        out += mesh_block(name, qs, wood.P, wood.N, None, 'M' + name, True)
+        out += mesh_block(name, [it[0] for it in items], wood.P, wood.N, None, 'M' + name, True)
         mats.append(('M' + name, 'color', c))
 
     out += ['    def Scope "Materiale"', '    {']
@@ -460,7 +467,7 @@ def usdz(leaves, wood, tex_png, bins=6, tex_h=1024, mode='emissive'):
         if kind == 'tex':
             out += ['                color3f inputs:%s.connect = </Brad/Materiale/%s/Textura.outputs:rgb>' % (chan, name),
                     '                float inputs:opacity.connect = </Brad/Materiale/%s/Textura.outputs:a>' % name,
-                    '                float inputs:opacityThreshold = 0.5',
+                    '                float inputs:opacityThreshold = %s' % _f(threshold),
                     '                token outputs:surface', '            }',
                     '            def Shader "St"', '            {', '                uniform token info:id = "UsdPrimvarReader_float2"',
                     '                string inputs:varname = "st"', '                float2 outputs:result', '            }',

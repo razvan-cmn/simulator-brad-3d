@@ -19,28 +19,24 @@
 </style>
 </head>
 <body>
-<header>Test AR pe iPhone · 3 variante</header>
+<header>Test AR pe iPhone · runda 2</header>
 <main>
-  <p>Apasă pe fiecare variantă. Se deschide aplicația Apple: alege sus <b>AR</b>, îndreaptă telefonul spre podea și uită-te la brad. Apoi închide (✕) și încearcă următoarea. Spune-mi care arată cel mai bine (A, B sau C).</p>
+  <p>Variante noi, reparate după capturile tale. Apasă pe fiecare, alege sus <b>AR</b> și <b>așteaptă 2–3 secunde</b> să se încarce crengile (fișierele au ~9 MB). Spune-mi care arată mai bine: D sau E.</p>
 
-  <a class="v" rel="ar" href="a-emisiv.usdz#allowsContentScaling=1">
-    <img src="brad.jpg" alt="Varianta A">
-    <div><b>A · culori fixe</b><span>Culorile exact ca pe Android, fără lumina Apple (varianta de acum).</span></div>
+  <a class="v" rel="ar" href="d-nou.usdz#allowsContentScaling=1">
+    <img src="brad.jpg" alt="Varianta D">
+    <div><b>D · luminat de cameră</b><span>Crengile pline, culori corecte; lumina din încăpere se pune pe brad (umbre naturale).</span></div>
   </a>
-  <a class="v" rel="ar" href="b-luminat.usdz#allowsContentScaling=1">
-    <img src="brad.jpg" alt="Varianta B">
-    <div><b>B · luminat normal</b><span>Apple pune lumina camerei pe brad (umbre, mai natural în încăpere).</span></div>
-  </a>
-  <a class="v" rel="ar" href="c-usor.usdz#allowsContentScaling=1">
-    <img src="brad.jpg" alt="Varianta C">
-    <div><b>C · luminat, mai ușor</b><span>Ca B, dar cu mai puține crengi suprapuse (se încarcă și se mișcă mai ușor).</span></div>
+  <a class="v" rel="ar" href="e-nou-fix.usdz#allowsContentScaling=1">
+    <img src="brad.jpg" alt="Varianta E">
+    <div><b>E · culori fixe</b><span>La fel, dar culorile rămân exact ca pe Android, indiferent de lumina din încăpere.</span></div>
   </a>
 
   <div class="info" id="info"></div>
 </main>
 <script>
   const m = navigator.userAgent.match(/OS (\d+)_(\d+)/);
-  document.getElementById('info').textContent = 'Telefonul tău: ' + (m ? 'iOS ' + m[1] + '.' + m[2] : navigator.userAgent.slice(0, 80)) + ' — spune-mi și versiunea asta împreună cu varianta aleasă.';
+  document.getElementById('info').textContent = 'Telefonul tău: ' + (m ? 'iOS ' + m[1] + '.' + m[2] : navigator.userAgent.slice(0, 80));
 </script>
 </body>
 </html>
