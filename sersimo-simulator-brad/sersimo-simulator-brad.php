@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Sersimo – Simulator brad
  * Description:       Buton „Vezi bradul în camera ta” pe pagina de produs: simulator la scară reală, comparare înălțimi, poză proprie. Măsoară utilizarea și marchează comenzile venite din simulator.
- * Version:           1.3.0
+ * Version:           1.3.1
  * Author:            Pruntech
  * Requires at least: 6.0
  * Requires PHP:      7.4
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SSB_VERSION', '1.3.0' );
+define( 'SSB_VERSION', '1.3.1' );
 define( 'SSB_FILE', __FILE__ );
 define( 'SSB_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SSB_URL', plugin_dir_url( __FILE__ ) );

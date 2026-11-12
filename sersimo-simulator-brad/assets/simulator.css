@@ -1,8 +1,9 @@
 /* Sersimo – Simulator brad. Totul e scopat sub #ssb-sim / .ssb-open-btn ca să nu intre în conflict cu tema. */
-.ssb-open-btn{display:flex!important;align-items:center;justify-content:center;gap:8px;width:100%;margin:12px 0 0;padding:15px 18px;
-  border:0!important;border-radius:10px;background:#c31c72!important;color:#fff!important;
-  font-family:"Oswald","Roboto Condensed","Arial Narrow",system-ui,sans-serif!important;font-weight:500;font-size:17px;line-height:1.2;cursor:pointer;text-transform:none;letter-spacing:.01em;box-shadow:none}
-.ssb-open-btn:hover,.ssb-open-btn:focus-visible{background:#a3155f!important;color:#fff!important}
+/* buton secundar (contur), mai mic decât „Adaugă în coș”, ca să nu-i fure atenția */
+.ssb-open-btn{display:inline-flex!important;align-items:center;justify-content:center;gap:6px;width:auto;max-width:100%;margin:12px 0 0;padding:8px 16px;
+  border:1.5px solid #c31c72!important;border-radius:6px;background:#fff!important;color:#c31c72!important;
+  font-family:"Oswald","Roboto Condensed","Arial Narrow",system-ui,sans-serif!important;font-weight:500;font-size:15px;line-height:1.2;cursor:pointer;text-transform:none;letter-spacing:.01em;box-shadow:none}
+.ssb-open-btn:hover,.ssb-open-btn:focus-visible{background:#c31c72!important;color:#fff!important}
 html.ssb-lock,html.ssb-lock body{overflow:hidden!important}
 
 #ssb-sim{--g:#c31c72;--g2:#a3155f;--gold:#e07aa9;--gold2:#f4b6d2;--cream:#faf8f8;--ink:#1d2320;--muted:#6c736e;--line:#e6e0d4;
