@@ -208,6 +208,7 @@ def build_tree(h_cm, d_cm, seed, variants, density, aspect=.45, cones=0.0, berri
         leaves.quad(a, b, c, d, n, uv=[(0, v1), (1, v1), (1, v0), (0, v0)], col=(ci, co, co, ci))
 
     # --- etaje de crengi
+    branches = []  # (bază, direcție, lungime, f) — conurile și bobițele se agață de crengile reale
     y0, ytop = H * .10, H * .93
     layers = max(8, int((ytop - y0) / (0.085 / density)))
     for li in range(layers):
@@ -228,8 +229,9 @@ def build_tree(h_cm, d_cm, seed, variants, density, aspect=.45, cones=0.0, berri
             width = max(.14, L * aspect)
             dark = .40 + .26 * f  # crengile de jos sunt mai în umbră
             var = rnd.randrange(variants)
-            for tw in (0, math.radians(42), math.radians(-42)):
-                card(base, direc, L, width, tw + rnd.uniform(-.15, .15), var, dark * .22, min(.95, dark + .28 + rnd.uniform(-.1, .1)))
+            branches.append((base, direc, L, f))
+            for tw in (0, math.pi / 2, math.radians(45), math.radians(-45)):
+                card(base, direc, L, width, tw + rnd.uniform(-.12, .12), var, dark * .22, min(.95, dark + .28 + rnd.uniform(-.1, .1)))
         # crenguțe scurte lângă trunchi: umplu golurile, ca să nu se vadă trunchiul printre etaje
         for k in range(max(4, n // 2)):
             az = off + 2 * math.pi * (k + .5) / max(4, n // 2) + rnd.uniform(-.3, .3)
@@ -237,7 +239,7 @@ def build_tree(h_cm, d_cm, seed, variants, density, aspect=.45, cones=0.0, berri
             L = max(.12, radius * rnd.uniform(.35, .55))
             direc = norm((math.cos(az) * math.cos(dr), -math.sin(dr), math.sin(az) * math.cos(dr)))
             yy = y + (ytop - y0) / layers * .5
-            for tw in (0, math.radians(60)):
+            for tw in (0, math.pi / 2):
                 card((0, yy, 0), direc, L, max(.12, L * .7), tw, rnd.randrange(variants), .08, .28 + .15 * f)
     # --- vârful (crenguțe verticale în stea)
     tipb = (0, ytop - .06, 0)
@@ -246,38 +248,28 @@ def build_tree(h_cm, d_cm, seed, variants, density, aspect=.45, cones=0.0, berri
 
     # --- trunchi + suport metalic
     # miez întunecat în interior: golurile dintre crengi se văd închise, ca la un brad real
-    core_seg, core_col = 10, (0.035, 0.06, 0.035)
+    core_seg, core_col = 10, (0.018, 0.03, 0.018)
     for i in range(core_seg):
         a0, a1 = 2 * math.pi * i / core_seg, 2 * math.pi * (i + 1) / core_seg
-        rb = R * .5
+        rb = R * .36
         p0, p1 = (math.cos(a0) * rb, y0 + .05, math.sin(a0) * rb), (math.cos(a1) * rb, y0 + .05, math.sin(a1) * rb)
         tp = (0, ytop - .05, 0)
         nn = norm((math.cos((a0 + a1) / 2), .35, math.sin((a0 + a1) / 2)))
         wood.quad(p0, p1, tp, tp, nn, col=(core_col,) * 4)
-    tr, brown, metal = .022, (0.23, 0.17, 0.11), (0.09, 0.09, 0.09)
-    wood.box((-tr, 0.05, -tr), (tr, ytop, tr), brown)
-    for k in range(4):
-        a = math.pi / 4 + k * math.pi / 2
-        for t in range(6):  # picior: segmente înclinate de la trunchi la podea
-            r0, r1 = .03 + .045 * t, .03 + .045 * (t + 1)
-            yy0, yy1 = .12 - .02 * (t + 1), .12 - .02 * t
-            cx, cz = math.cos(a) * (r0 + r1) / 2, math.sin(a) * (r0 + r1) / 2
-            s = .012
-            wood.box((cx - s, max(0, yy0), cz - s), (cx + s, yy1, cz + s), metal)
+    tr, brown, metal = .016, (0.10, 0.065, 0.04), (0.06, 0.06, 0.06)
+    wood.box((-tr, 0.05, -tr), (tr, ytop * .85, tr), brown)
+    leg, s = .30, .014
+    wood.box((-leg, 0, -s), (leg, .035, s), metal)  # suport în cruce, pe podea
+    wood.box((-s, 0, -leg), (s, .035, leg), metal)
+    wood.box((-.04, .035, -.04), (.04, .09, .04), metal)  # mufa trunchiului
     # --- conuri și bobițe 3D, la capetele crengilor
     rnd2 = random.Random(seed + 99)
-    for li in range(layers):
-        f = li / (layers - 1)
-        if f > .88:
+    for base, direc, L, f in branches:
+        if f > .88 or f < .04:
             continue
-        y = y0 + (ytop - y0) * f
-        radius = R * (1 - f) ** 0.92 + 0.06
-        for k in range(max(5, round((8 + 9 * (1 - f)) * density))):
-            az = rnd2.uniform(0, 2 * math.pi)
-            out = (math.cos(az), 0, math.sin(az))
-            r = radius * rnd2.uniform(.72, .9)
-            drop = r * math.tan(math.radians(24 - 34 * f)) * .7
-            p = (out[0] * r, y - drop, out[2] * r)
+        p = add(base, direc, L * rnd2.uniform(.62, .82))  # pe creangă, puțin înainte de vârf
+        out = norm((direc[0], 0, direc[2]))
+        if True:
             u = rnd2.random()
             if u < cones:
                 L = rnd2.uniform(.075, .095)
