@@ -412,6 +412,14 @@ def usdz(leaves, wood, tex_png, bins=4, tex_h=2048, mode='lit', dilate=1, thresh
         from PIL import ImageFilter
         alpha = alpha.filter(ImageFilter.MaxFilter(dilate * 2 + 1))
 
+    # normale „radiale”: fiecare punct al coroanei privește în afară, dinspre trunchi (ca o sferă).
+    # Lumina cade uniform pe brad, nu diferit pe fiecare placă după cum e întoarsă → fără dungi gri.
+    def _radial(pnt):
+        x, y, z = pnt
+        r = math.sqrt(x * x + z * z)
+        return norm((x, .45 * r + .05, z)) if r > 1e-4 else (0, 1, 0)
+    radialN = [_radial(pt) for pt in leaves.P]
+
     # crengi: grupate după luminozitatea capătului (u=1); baza (u=0) = media grupei
     lq = [tuple(range(i, i + 4)) for i in range(0, len(leaves.P), 4)]
     groups = {}
@@ -431,7 +439,7 @@ def usdz(leaves, wood, tex_png, bins=4, tex_h=2048, mode='lit', dilate=1, thresh
         fname = 'crengi%d.png' % b
         files.append((fname, buf.getvalue()))
         name = 'Crengi%d' % b
-        out += mesh_block(name, [i[0] for i in items], leaves.P, leaves.N, leaves.T, 'M' + name, True)
+        out += mesh_block(name, [i[0] for i in items], leaves.P, radialN, leaves.T, 'M' + name, True)
         mats.append(('M' + name, 'tex', fname))
     # lemn, miez, conuri, bobițe: culori fixe (deja „luminate” în vertex colors)
     wq = [tuple(range(i, i + 4)) for i in range(0, len(wood.P), 4)]
@@ -452,7 +460,9 @@ def usdz(leaves, wood, tex_png, bins=4, tex_h=2048, mode='lit', dilate=1, thresh
                 '            token outputs:surface.connect = </Brad/Materiale/%s/Suprafata.outputs:surface>' % name,
                 '            def Shader "Suprafata"', '            {',
                 '                uniform token info:id = "UsdPreviewSurface"',
-                '                float inputs:roughness = 1', '                float inputs:metallic = 0']
+                '                float inputs:roughness = 1', '                float inputs:metallic = 0',
+                # fără luciu: specular workflow cu specular negru (altfel muchiile crengilor strălucesc argintiu)
+                '                int inputs:useSpecularWorkflow = 1', '                color3f inputs:specularColor = (0, 0, 0)']
         if mode == 'emissive':
             out += ['                color3f inputs:diffuseColor = (0, 0, 0)']  # fără lumina Apple: totul vine din emisiv
         chan = 'emissiveColor' if mode == 'emissive' else 'diffuseColor'

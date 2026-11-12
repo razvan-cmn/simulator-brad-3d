@@ -14,29 +14,23 @@
   .v img{width:84px;height:110px;object-fit:cover;border-radius:10px;background:#000;flex:none}
   .v b{display:block;font-size:20px;font-weight:500;color:#c31c72}
   .v span{display:block;color:#555;font-size:14.5px}
-  .info{margin-top:16px;padding:10px 12px;background:#fff7fb;border:1px solid #f1c6dc;border-radius:12px;font-size:14px;color:#6a2a4a}
   p{color:#555;margin:10px 0 0}
 </style>
 </head>
 <body>
-<header>Test AR pe iPhone · runda 2</header>
+<header>Test AR pe iPhone · runda 4</header>
 <main>
-  <p>Variante noi, reparate după capturile tale. Apasă pe fiecare, alege sus <b>AR</b> și <b>așteaptă 2–3 secunde</b> să se încarce crengile (fișierele au ~9 MB). Spune-mi care arată mai bine: D sau E.</p>
+  <p>Fără luciul argintiu pe crengi și cu lumina uniformă pe tot bradul. Deschide fiecare în <b>AR</b>, înconjoară bradul (mai ales partea care înainte se „pierdea”) și spune-mi: <b>F</b> sau <b>G</b>?</p>
 
-  <a class="v" rel="ar" href="d-nou.usdz#allowsContentScaling=1">
-    <img src="brad.jpg" alt="Varianta D">
-    <div><b>D · luminat de cameră</b><span>Crengile pline, culori corecte; lumina din încăpere se pune pe brad (umbre naturale).</span></div>
+  <a class="v" rel="ar" href="f-culori-fixe.usdz#allowsContentScaling=1">
+    <img src="brad.jpg" alt="Varianta F">
+    <div><b>F · culori fixe</b><span>Exact culorile de pe Android; lumina din cameră nu schimbă bradul.</span></div>
   </a>
-  <a class="v" rel="ar" href="e-nou-fix.usdz#allowsContentScaling=1">
-    <img src="brad.jpg" alt="Varianta E">
-    <div><b>E · culori fixe</b><span>La fel, dar culorile rămân exact ca pe Android, indiferent de lumina din încăpere.</span></div>
+  <a class="v" rel="ar" href="g-luminat.usdz#allowsContentScaling=1">
+    <img src="brad.jpg" alt="Varianta G">
+    <div><b>G · luminat blând</b><span>Lumina din cameră se pune pe brad, uniform, fără dungi.</span></div>
   </a>
-
-  <div class="info" id="info"></div>
+  <p>Fișierele au ~7 MB — după ce alegi AR, așteaptă 2–3 secunde.</p>
 </main>
-<script>
-  const m = navigator.userAgent.match(/OS (\d+)_(\d+)/);
-  document.getElementById('info').textContent = 'Telefonul tău: ' + (m ? 'iOS ' + m[1] + '.' + m[2] : navigator.userAgent.slice(0, 80));
-</script>
 </body>
 </html>
