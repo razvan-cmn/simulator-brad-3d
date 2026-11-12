@@ -386,13 +386,19 @@ def usdz(leaves, wood, tex_png, bins=4, tex_h=2048, mode='lit', dilate=1, thresh
     def mesh_block(name, quads, P, N, T, mat, double):
         idx, pts, nrm, st = [], [], [], []
         for q in quads:
+            first = len(pts)
             for v in q:
                 idx.append(len(pts)); pts.append(P[v]); nrm.append(N[v])
                 if T:
                     st.append((T[v][0], 1 - T[v][1]))
+            if double:
+                # AR Quick Look ignoră „doubleSided” și desenează o singură față → crengile dispar când
+                # le vezi din spate. Punem explicit și fața a doua (aceleași puncte, ordine inversă).
+                idx += [first, first + 3, first + 2, first + 1]
+        nfaces = len(quads) * (2 if double else 1)
         b = ['    def Mesh "%s" (' % name, '        prepend apiSchemas = ["MaterialBindingAPI"]', '    )', '    {',
-             '        uniform bool doubleSided = %d' % (1 if double else 0),
-             '        int[] faceVertexCounts = [%s]' % ', '.join(['4'] * len(quads)),
+             '        uniform bool doubleSided = 0',
+             '        int[] faceVertexCounts = [%s]' % ', '.join(['4'] * nfaces),
              '        int[] faceVertexIndices = [%s]' % ', '.join(map(str, idx)),
              '        rel material:binding = </Brad/Materiale/%s>' % mat,
              '        normal3f[] normals = [%s] (interpolation = "vertex")' % ', '.join('(%s, %s, %s)' % tuple(map(_f, n)) for n in nrm),
