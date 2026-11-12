@@ -9,6 +9,31 @@ class SSB_Admin {
 		add_action( 'woocommerce_product_data_panels', array( __CLASS__, 'panel' ) );
 		add_action( 'woocommerce_admin_process_product_object', array( __CLASS__, 'save' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'assets' ) );
+		// Media: permitem încărcarea modelelor 3D (.glb / .usdz) — doar pentru cine editează produse.
+		add_filter( 'upload_mimes', array( __CLASS__, 'mimes' ) );
+		add_filter( 'wp_check_filetype_and_ext', array( __CLASS__, 'check_model' ), 10, 4 );
+	}
+
+	const MODEL_MIMES = array( 'glb' => 'model/gltf-binary', 'usdz' => 'model/vnd.usdz+zip' );
+
+	public static function mimes( $m ) {
+		return current_user_can( 'edit_products' ) ? array_merge( $m, self::MODEL_MIMES ) : $m;
+	}
+
+	/** WordPress verifică și conținutul fișierului; .glb/.usdz nu sunt recunoscute, așa că le validăm noi după antet. */
+	public static function check_model( $data, $file, $filename, $mimes ) {
+		$ext = strtolower( pathinfo( (string) $filename, PATHINFO_EXTENSION ) );
+		if ( ! empty( $data['type'] ) || ! isset( self::MODEL_MIMES[ $ext ] ) || ! current_user_can( 'edit_products' ) || ! is_readable( $file ) ) {
+			return $data;
+		}
+		$head = (string) file_get_contents( $file, false, null, 0, 4 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$ok   = 'glb' === $ext ? 'glTF' === $head : "PK\x03\x04" === $head; // .usdz = arhivă zip
+		if ( $ok ) {
+			$data['ext']             = $ext;
+			$data['type']            = self::MODEL_MIMES[ $ext ];
+			$data['proper_filename'] = false;
+		}
+		return $data;
 	}
 
 	public static function tab( $tabs ) {
@@ -47,6 +72,19 @@ jQuery(function($){
     frame.open();
   });
   $(document).on('click', '#ssb_cutout_clear', function(e){ e.preventDefault(); $('#_ssb_cutout_id').val(''); $('#ssb_cutout_preview').empty(); });
+  // modele 3D (.glb / .usdz)
+  $(document).on('click', '.ssb-model-pick', function(e){
+    e.preventDefault();
+    var key = $(this).data('key'), ext = $(this).data('ext');
+    var f = wp.media({ title: 'Model 3D (.' + ext + ')', button: { text: 'Folosește fișierul' }, multiple: false });
+    f.on('select', function(){
+      var a = f.state().get('selection').first().toJSON(), n = (a.filename || a.url || '').toLowerCase();
+      if (n.slice(-ext.length - 1) !== '.' + ext) { alert('Alege un fișier .' + ext); return; }
+      $('#' + key).val(a.id); $('#' + key + '_name').text(a.filename || a.url);
+    });
+    f.open();
+  });
+  $(document).on('click', '.ssb-model-clear', function(e){ e.preventDefault(); var k = $(this).data('key'); $('#' + k).val(''); $('#' + k + '_name').text('—'); });
 });
 JS;
 	}
@@ -111,7 +149,21 @@ JS;
 			'desc_tip'          => true,
 			'description'       => 'Unde e trunchiul pe lățimea decupajului: 0 = margine stânga, 0.5 = mijloc, 1 = margine dreapta. Contează doar dacă bradul nu e simetric.',
 		) );
+		echo '</div><div class="options_group">';
+		self::model_field( $id, SSB_Product::META_GLB, 'glb', 'Model 3D (.glb)', 'Bradul 3D pentru vederea 3D și AR pe Android. Poate lipsi la unele înălțimi – se folosește modelul altei înălțimi, scalat.' );
+		self::model_field( $id, SSB_Product::META_USDZ, 'usdz', 'Model 3D iPhone (.usdz)', 'Același brad pentru AR pe iPhone (AR Quick Look). iPhone-ul nu poate scala modelul, deci fiecare înălțime are nevoie de fișierul ei; fără el, butonul AR nu apare pe iPhone la această înălțime.' );
 		echo '</div></div>';
+	}
+
+	private static function model_field( $id, $key, $ext, $label, $tip ) {
+		$att  = absint( get_post_meta( $id, $key, true ) );
+		$file = $att ? get_attached_file( $att ) : '';
+		echo '<p class="form-field"><label>' . esc_html( $label ) . '</label>';
+		echo '<input type="hidden" id="' . esc_attr( $key ) . '" name="' . esc_attr( $key ) . '" value="' . esc_attr( $att ? $att : '' ) . '">';
+		echo '<button type="button" class="button ssb-model-pick" data-key="' . esc_attr( $key ) . '" data-ext="' . esc_attr( $ext ) . '">Alege fișierul</button> ';
+		echo '<button type="button" class="button-link ssb-model-clear" data-key="' . esc_attr( $key ) . '">Șterge</button>';
+		echo wc_help_tip( $tip ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo '<code id="' . esc_attr( $key ) . '_name" style="display:block;margin-top:6px;width:max-content;max-width:100%">' . esc_html( $file ? wp_basename( $file ) : '—' ) . '</code></p>';
 	}
 
 	/** @param WC_Product $product */
@@ -119,7 +171,7 @@ JS;
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce-ul e verificat de WooCommerce la salvarea produsului.
 		$product->update_meta_data( SSB_Product::META_ENABLED, isset( $_POST[ SSB_Product::META_ENABLED ] ) ? 'yes' : 'no' );
 		$product->update_meta_data( SSB_Product::META_FAMILY, isset( $_POST[ SSB_Product::META_FAMILY ] ) ? sanitize_text_field( wp_unslash( $_POST[ SSB_Product::META_FAMILY ] ) ) : '' );
-		foreach ( array( SSB_Product::META_HEIGHT, SSB_Product::META_DIAMETER, SSB_Product::META_CUTOUT ) as $k ) {
+		foreach ( array( SSB_Product::META_HEIGHT, SSB_Product::META_DIAMETER, SSB_Product::META_CUTOUT, SSB_Product::META_GLB, SSB_Product::META_USDZ ) as $k ) {
 			$v = isset( $_POST[ $k ] ) ? absint( wp_unslash( $_POST[ $k ] ) ) : 0;
 			$product->update_meta_data( $k, $v ? $v : '' );
 		}

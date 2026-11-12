@@ -6,7 +6,7 @@
 <title>Demo simulator brad</title>
 <!-- doar în demo: pe sersimo.ro fontul vine local, din Elementor -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="../sersimo-simulator-brad/assets/simulator.css?v=1.2.3b">
+<link rel="stylesheet" href="../sersimo-simulator-brad/assets/simulator.css?v=1.3.0">
 <style>
   body{margin:0;background:#fff;font:15px/1.45 Roboto,system-ui,sans-serif;color:#1d2320}
   h1{font-family:Oswald,sans-serif;font-weight:500}
@@ -38,9 +38,11 @@
     id, h, d, price, priceText: price.toLocaleString('ro-RO') + ' lei', name: 'Brad artificial Christmas Deluxe by Sersimo Frasin de Munte 2D ' + h + 'cm',
     url: base + h + 'cm/', cartUrl: base + h + 'cm/?add-to-cart=' + id + '&quantity=1&ssb=1' + utm,
     inStock: stock, cutout: '../prototip/assets/tree.webp', baseX: 0.545,
+    glb: 'models/frasin-' + h + '.glb', glbH: h, glbD: d, usdz: 'models/frasin-' + h + '.usdz',
   });
   window.SSB_CONFIG = {
     family: 'Frasin de Munte 2D', name: '', current: 1, brand: 'sersimo.ro', currency: 'RON', ajaxUrl: '',
+    has3d: true, arJs: '../sersimo-simulator-brad/assets/ar.js?ver=1.3.0', qrJs: '../sersimo-simulator-brad/assets/vendor/qrcode.js?ver=1.3.0',
     sizes: [mk(67574, 180, 115, 378), mk(67553, 220, 135, 449), mk(146361, 240, 150, 542, false)],
   };
   // jurnalul evenimentelor de tracking apare doar cu ?debug în link (în site merg în GA4 / GTM)
@@ -48,6 +50,6 @@
   window.dataLayer = []; const push = dataLayer.push.bind(dataLayer);
   dataLayer.push = o => { document.getElementById('log').textContent += '\n' + JSON.stringify(o); return push(o); };
 </script>
-<script src="../sersimo-simulator-brad/assets/simulator.js?v=1.2.3b"></script>
+<script src="../sersimo-simulator-brad/assets/simulator.js?v=1.3.0"></script>
 </body>
 </html>

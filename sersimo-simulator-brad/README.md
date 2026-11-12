@@ -43,6 +43,24 @@ Butonul apare doar pe produsele activate, de tip **simplu** (produsele variabile
 - Poza bradului trebuie făcută din față, cu aparatul la jumătatea înălțimii bradului. Fundalul se poate scoate cu remove.bg, Photoshop sau Canva.
 - Exemplu: `../prototip/assets/tree.webp` (Frasin de Munte 2D).
 
+### Brad 3D + AR live (v1.3)
+Dacă un produs are model 3D, popup-ul se deschide direct pe **„🎄 3D · AR live”**: bradul 3D se rotește cu degetul, iar pe telefon
+butonul **„Pune bradul în camera ta”** deschide camera și pune bradul în cameră, la mărimea reală. Modurile vechi (Living, Bloc / Casă,
+Camera ta) rămân în același popup, ca alternative. Produsele fără model 3D funcționează exact ca înainte.
+
+- În tab-ul „Simulator brad” al produsului: **Model 3D (.glb)** (web + Android) și **Model 3D iPhone (.usdz)**. Se încarcă direct din Media
+  (pluginul permite aceste tipuri de fișiere doar celor care editează produse și verifică conținutul).
+- `.glb` poate lipsi la unele înălțimi: se folosește modelul celei mai apropiate înălțimi, scalat la mărimea corectă.
+- `.usdz` (iPhone) trebuie pus pe **fiecare** înălțime: iPhone-ul nu poate scala fișierul. Fără el, la acea înălțime pe iPhone apare doar vederea 3D.
+- Android: AR propriu (atingi podeaua ca să-l pui, tragi cu degetul, + / −, 100 %, rotire, blocare, buton „În coș”, ascundere în spatele oamenilor).
+- iPhone: AR Quick Look (aplicația Apple), cu banner „Adaugă în coș” jos.
+- Calculator: cod QR care deschide pagina pe telefon, direct în simulator (link `pagina-produsului/#ssb-ar`).
+- Bibliotecile 3D (three.js, generator QR) sunt incluse în plugin (`assets/vendor`): nimic nu se încarcă de pe alte servere și nimic nu se încarcă
+  dacă nu se deschide modul 3D.
+- **Server:** fișierele `.usdz` trebuie servite cu tipul `model/vnd.usdz+zip`. Dacă pe iPhone AR-ul nu pornește, adaugă în `.htaccess`
+  (Apache/LiteSpeed): `AddType model/vnd.usdz+zip .usdz` și `AddType model/gltf-binary .glb` (pe nginx: în `mime.types`).
+- Modelele se generează cu `tools/make_tree3d.py` (vezi proiectul), câte unul pe înălțime.
+
 ### Camera „Bloc / Casă” (v1.2)
 A înlocuit „Cameră goală”. Clientul alege un preset; fiecare are ușă, fereastră, calorifer, canapea și măsuță:
 
@@ -122,9 +140,11 @@ includes/class-ssb-frontend.php     butonul + shortcode, încarcă assets doar u
 includes/class-ssb-tracking.php     contoare evenimente (admin-ajax), marcare coș/comandă, coloana din comenzi
 includes/class-ssb-stats.php        pagina WooCommerce → Simulator brad
 assets/simulator.js | .css          simulatorul (canvas 2D, JS simplu, fără librării)
+assets/ar.js                        vederea 3D + AR (modul încărcat la cerere)
+assets/vendor/                      three.js r160 (MIT), qrcode-generator (MIT)
 ```
 
-Meta produs: `_ssb_enabled`, `_ssb_family`, `_ssb_height`, `_ssb_diameter`, `_ssb_cutout_id`, `_ssb_base_x`.
+Meta produs: `_ssb_enabled`, `_ssb_family`, `_ssb_height`, `_ssb_diameter`, `_ssb_cutout_id`, `_ssb_base_x`, `_ssb_glb_id`, `_ssb_usdz_id`.
 Opțiuni: `ssb_settings`, `ssb_stats` (contoare zilnice, păstrate 400 de zile).
 Cookie: `ssb_used=1` (30 de zile, doar funcțional, fără date personale).
 

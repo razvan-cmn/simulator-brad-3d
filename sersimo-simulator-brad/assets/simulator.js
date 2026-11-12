@@ -1,7 +1,8 @@
-/* Sersimo – Simulator brad (v1.2.3)
+/* Sersimo – Simulator brad (v1.3.0)
  * Datele vin din window.SSB_CONFIG (injectat de plugin, vezi includes/class-ssb-frontend.php):
- * { family, name, current, sizes:[{id,h,d,price,priceText,url,cartUrl,inStock,cutout,baseX}],
- *   ajaxUrl, brand, buttonText }
+ * { family, name, current, sizes:[{id,h,d,price,priceText,url,cartUrl,inStock,cutout,baseX,glb,glbH,glbD,usdz}],
+ *   ajaxUrl, brand, has3d, arJs, qrJs }
+ * Vederea „3D · AR” (assets/ar.js) se încarcă doar când e deschisă.
  */
 (function () {
   'use strict';
@@ -56,8 +57,9 @@
   <div class="ssb-body">
     <div class="ssb-stage" data-ssb="stage">
       <canvas class="ssb-cv"></canvas>
+      <div class="ssb-3d ssb-hidden" data-ssb="v3d"></div>
       <div class="ssb-hint" data-ssb="hint">${isTouch ? 'Trage bradul cu degetul · 2 degete pentru zoom' : 'Trage bradul ca să-l muți · rotița pentru zoom'}</div>
-      <div class="ssb-tools">
+      <div class="ssb-tools" data-ssb="tools">
         <button type="button" class="ssb-tool" data-ssb="zin" title="Zoom in">+</button>
         <button type="button" class="ssb-tool" data-ssb="zout" title="Zoom out">−</button>
         <button type="button" class="ssb-tool" data-ssb="reset" title="Resetează">⟲</button>
@@ -144,10 +146,12 @@
         <div class="ssb-dim"><small>Diametru la bază</small><b data-ssb="dD"></b></div>
       </div>
       <div class="ssb-warn ssb-hidden" data-ssb="warn"></div>
+      <div data-ssb="opts">
       <h3>Afișare</h3>
       <label class="ssb-toggle">Cote (înălțime și diametru)<input type="checkbox" data-ssb="tDims" checked></label>
       <label class="ssb-toggle">Compară cu celelalte înălțimi<input type="checkbox" data-ssb="tCmp"></label>
       <label class="ssb-toggle">Siluetă om 1,70 m (referință)<input type="checkbox" data-ssb="tPerson"></label>
+      </div>
       <div class="ssb-cta">
         <a class="ssb-btn ssb-btn-cart" data-ssb="cart"></a>
         <small data-ssb="cartNote"></small>
@@ -217,8 +221,10 @@
     { id: 'empty', name: 'Bloc / Casă', hc: 140, start: { x: 0, z: 420 }, blocks: [] },
     { id: 'photo', name: '📷 Camera ta', photo: true },
   ];
+  // 3D · AR: primul mod (și cel deschis implicit) când produsul are model 3D
+  if (CFG.has3d && CFG.arJs && window.WebGLRenderingContext) ROOMS.unshift({ id: '3d', name: '🎄 3D · AR live', three: true });
   let room = ROOMS[0];
-  const pos = { living: { ...ROOMS[0].start }, empty: null, photo: { u: .5, v: .85 } };
+  const pos = { living: { ...ROOMS.find(r => r.id === 'living').start }, empty: null, photo: { u: .5, v: .85 } };
   // Poza e redusă la max 2048 px. horizon/ref sunt în fracțiuni din înălțimea/lățimea pozei.
   // O poză făcută cu telefonul drept are orizontul la mijloc (0.5).
   const photo = { img: null, mask: null, front: null, frontDirty: true, strokes: [], horizon: .5, hc: 140, ceil: 260, ref: null, refH: 205 };
@@ -520,7 +526,7 @@
 
   /* ---------- desen principal ---------- */
   function draw() {
-    if (!W) return;
+    if (!W || room.three) return;
     setupCam();
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.fillStyle = '#0d110e'; ctx.fillRect(0, 0, W, H);
@@ -745,6 +751,10 @@
     $('sizes').innerHTML = PRODUCT.sizes.map((o, i) => `<button type="button" class="ssb-size" data-i="${i}" aria-pressed="${i === sizeIdx}"><b>${o.h} cm</b><span>${esc(o.priceText)}</span></button>`).join('');
     $('rooms').innerHTML = ROOMS.map(r => `<button type="button" class="ssb-chip" data-r="${r.id}" aria-pressed="${r === room}">${r.name}</button>`).join('');
     $('photoTools').classList.toggle('ssb-hidden', !room.photo);
+    const three = !!room.three;
+    cv.classList.toggle('ssb-hidden', three); $('tools').classList.toggle('ssb-hidden', three); $('hint').classList.toggle('ssb-hidden', three);
+    $('v3d').classList.toggle('ssb-hidden', !three); $('opts').classList.toggle('ssb-hidden', three);
+    root.classList.toggle('ssb-mode-3d', three);
     $('emptyTools').classList.toggle('ssb-hidden', room.id !== 'empty');
     if (room.id === 'empty') renderRoomPanel();
     $('photoSteps').classList.toggle('ssb-hidden', !photo.img);
@@ -753,7 +763,7 @@
     root.querySelectorAll('[data-refh]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.refh === photo.refH));
     // avertisment tavan
     const ceil = ceilingOf(), free = ceil - s.h, warn = $('warn');
-    if (free < TOPPER) {
+    if (free < TOPPER && !three) {
       warn.textContent = free < 0
         ? `Bradul de ${s.h} cm este mai înalt decât tavanul (${ceil} cm).`
         : `Rămân doar ${free} cm până la tavan — prea puțin pentru un vârf/steluță. Alege o înălțime mai mică.`;
@@ -764,8 +774,33 @@
     const b = e.target.closest('[data-i],[data-r]'); if (!b) return;
     if (b.dataset.i) { sizeIdx = +b.dataset.i; track('size'); }
     if (b.dataset.r) { room = ROOMS.find(r => r.id === b.dataset.r); resetView(); track('room_' + room.id); }
-    renderUI(); draw();
+    renderUI(); sync3d();
+    if (b.dataset.r && !room.three) requestAnimationFrame(resize); else draw();
   });
+
+  /* ---------- vederea 3D · AR (assets/ar.js, încărcat la cerere) ---------- */
+  let v3d = null, v3dLoading = null;
+  function load3d() {
+    if (!v3dLoading) {
+      v3dLoading = import(new URL(CFG.arJs, document.baseURI).href).then(m => m.mount($('v3d'), {
+        track, qrJs: CFG.qrJs, sizes: () => PRODUCT.sizes, title: () => PRODUCT.family,
+        cart: () => { const a = $('cart'); a.click(); }, // același link + tracking ca butonul din panou
+      })).then(c => { v3d = c; sync3d(); return c; }).catch(err => {
+        // browser prea vechi / eroare de încărcare: ascundem modul 3D și revenim la camerele desenate
+        console.error('SSB 3D', err);
+        ROOMS.splice(ROOMS.findIndex(r => r.three), 1);
+        if (room.three) room = ROOMS[0];
+        renderUI(); requestAnimationFrame(resize);
+      });
+    }
+    return v3dLoading;
+  }
+  function sync3d() {
+    if (!room.three) { if (v3d) v3d.hide(); return; }
+    if (!v3d) { load3d(); return; }
+    v3d.setSize(PRODUCT.sizes[sizeIdx]);
+    if (root.classList.contains('ssb-open')) v3d.show(); else v3d.hide();
+  }
   $('tDims').onchange = e => { opt.dims = e.target.checked; draw(); };
   $('tCmp').onchange = e => { opt.cmp = e.target.checked; if (opt.cmp) track('compare'); draw(); };
   $('tPerson').onchange = e => { opt.person = e.target.checked; draw(); };
@@ -925,10 +960,10 @@
   function open() {
     root.classList.add('ssb-open'); document.documentElement.classList.add('ssb-lock');
     $('hint').style.opacity = 1; clearTimeout(hintTimer); hintTimer = setTimeout(hideHint, 4500);
-    requestAnimationFrame(resize);
+    requestAnimationFrame(resize); sync3d();
     markUsed(); track('open'); if (onceFlag('open_' + PRODUCT.sizes[sizeIdx].id)) track('open_unique');
   }
-  function close() { root.classList.remove('ssb-open'); document.documentElement.classList.remove('ssb-lock'); }
+  function close() { root.classList.remove('ssb-open'); document.documentElement.classList.remove('ssb-lock'); if (v3d) v3d.hide(); }
   $('close').onclick = close;
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && root.classList.contains('ssb-open')) close(); });
   new ResizeObserver(() => { if (root.classList.contains('ssb-open')) resize(); }).observe($('stage'));
@@ -939,4 +974,6 @@
   if (document.querySelector('.ssb-open-btn')) track('view');
   window.SSB = { open, close };
   renderUI();
+  // link direct spre simulator (ex. din codul QR de pe calculator): pagina-produsului#ssb-ar
+  if (/^#(ssb-ar|simulator)$/.test(location.hash) && document.querySelector('.ssb-open-btn')) open();
 })();

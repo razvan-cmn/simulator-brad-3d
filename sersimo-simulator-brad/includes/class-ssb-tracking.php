@@ -14,7 +14,7 @@ class SSB_Tracking {
 	const STATS_OPTION = 'ssb_stats';
 	const ORDER_META   = '_ssb_source';
 	const ITEM_META    = '_ssb_sim';
-	const EVENTS       = array( 'view', 'open', 'open_unique', 'size', 'room_living', 'room_empty', 'room_photo', 'room_preset', 'room_custom', 'photo_upload', 'photo_calibrate', 'photo_mask', 'move', 'compare', 'shot', 'share', 'cart', 'cart_oos' );
+	const EVENTS       = array( 'view', 'open', 'open_unique', 'size', 'room_3d', 'ar_android', 'ar_ios', 'ar_place', 'ar_qr', 'room_living', 'room_empty', 'room_photo', 'room_preset', 'room_custom', 'photo_upload', 'photo_calibrate', 'photo_mask', 'move', 'compare', 'shot', 'share', 'cart', 'cart_oos' );
 
 	public static function init() {
 		add_action( 'wp_ajax_ssb_event', array( __CLASS__, 'ajax_event' ) );

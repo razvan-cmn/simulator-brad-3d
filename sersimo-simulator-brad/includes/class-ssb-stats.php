@@ -97,6 +97,7 @@ class SSB_Stats {
 		// ---- detaliu acțiuni
 		$labels = array(
 			'size' => 'Schimbări de înălțime', 'compare' => 'Comparare înălțimi', 'move' => 'A mutat bradul',
+			'room_3d' => '3D / AR: a deschis vederea 3D', 'ar_android' => 'AR pornit pe Android', 'ar_place' => 'AR Android: a pus bradul', 'ar_ios' => 'AR pornit pe iPhone', 'ar_qr' => 'Calculator: a văzut codul QR pentru telefon',
 			'room_living' => 'Cameră: living', 'room_empty' => 'Cameră: bloc / casă', 'room_photo' => 'Cameră: poza proprie', 'room_preset' => 'Bloc / Casă: a ales un preset', 'room_custom' => 'Bloc / Casă: a folosit Custom',
 			'photo_upload' => 'Poze încărcate', 'photo_calibrate' => 'Poze calibrate cu obiect', 'photo_mask' => 'Poze cu obiecte în față', 'shot' => 'Capturi salvate', 'share' => 'Capturi trimise (telefon)', 'cart_oos' => 'Click pe produs fără stoc',
 		);

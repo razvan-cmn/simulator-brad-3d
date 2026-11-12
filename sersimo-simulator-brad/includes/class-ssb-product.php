@@ -12,6 +12,8 @@ class SSB_Product {
 	const META_DIAMETER = '_ssb_diameter';
 	const META_CUTOUT   = '_ssb_cutout_id';
 	const META_BASEX    = '_ssb_base_x';
+	const META_GLB      = '_ssb_glb_id';   // model 3D pentru web + Android (.glb)
+	const META_USDZ     = '_ssb_usdz_id';  // model 3D pentru iPhone (.usdz, AR Quick Look)
 
 	public static function is_enabled( $product_id ) {
 		return 'yes' === get_post_meta( $product_id, self::META_ENABLED, true )
@@ -40,6 +42,13 @@ class SSB_Product {
 		}
 		$src = wp_get_attachment_image_src( $id, 'full' );
 		return $src ? $src[0] : '';
+	}
+
+	/** URL-ul unui fișier din Media (model 3D). */
+	public static function file_url( $product_id, $meta ) {
+		$id = absint( get_post_meta( $product_id, $meta, true ) );
+		$u  = $id ? wp_get_attachment_url( $id ) : '';
+		return $u ? $u : '';
 	}
 
 	public static function base_x( $product_id ) {
@@ -95,7 +104,26 @@ class SSB_Product {
 				'inStock'   => $p->is_purchasable() && $p->is_in_stock(),
 				'cutout'    => self::cutout_url( $id ),
 				'baseX'     => self::base_x( $id ),
+				// modelul 3D e construit exact la h × d ale produsului; glbH/glbD = mărimea modelului (pentru scalare)
+				'glb'       => self::file_url( $id, self::META_GLB ),
+				'glbH'      => $h,
+				'glbD'      => self::diameter( $id, $h ),
+				'usdz'      => self::file_url( $id, self::META_USDZ ), // iPhone: doar fișierul propriu (Quick Look nu poate scala)
 			);
+		}
+
+		// Mărimile fără model 3D propriu îl folosesc pe al celei mai apropiate mărimi care are unul, scalat (web + Android).
+		$with3d = array_values( array_filter( $sizes, function ( $s ) { return '' !== $s['glb']; } ) );
+		if ( $with3d ) {
+			foreach ( $sizes as &$s ) {
+				if ( '' === $s['glb'] ) {
+					usort( $with3d, function ( $a, $b ) use ( $s ) { return abs( $a['h'] - $s['h'] ) - abs( $b['h'] - $s['h'] ); } );
+					$s['glb']  = $with3d[0]['glb'];
+					$s['glbH'] = $with3d[0]['glbH'];
+					$s['glbD'] = $with3d[0]['glbD'];
+				}
+			}
+			unset( $s );
 		}
 
 		// Mărimile fără decupaj propriu îl folosesc pe al celei mai apropiate mărimi care are unul.
@@ -131,6 +159,9 @@ class SSB_Product {
 			'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
 			'brand'    => SSB_Settings::get( 'brand' ),
 			'currency' => get_woocommerce_currency(),
+			'has3d'    => (bool) $with3d,
+			'arJs'     => SSB_URL . 'assets/ar.js?ver=' . SSB_VERSION,
+			'qrJs'     => SSB_URL . 'assets/vendor/qrcode.js?ver=' . SSB_VERSION,
 		);
 	}
 }
